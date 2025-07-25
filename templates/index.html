@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Search</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .highlight {
+            background-color: #ffd700;
+            padding: 0 2px;
+        }
+        .page-number {
+            cursor: pointer;
+            padding: 2px 6px;
+            margin: 0 2px;
+            border-radius: 4px;
+            background-color: #e2e8f0;
+            transition: background-color 0.2s;
+        }
+        .page-number:hover {
+            background-color: #cbd5e0;
+        }
+        .page-number.active {
+            background-color: #4a5568;
+            color: white;
+        }
+        .search-in-progress {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .search-pulse {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold text-center mb-8 text-gray-800">Book Search</h1>
+        
+        <div class="max-w-2xl mx-auto">
+            <div class="flex gap-4 mb-8">
+                <div class="flex-1 relative">
+                    <input type="text" 
+                           id="searchInput" 
+                           class="w-full p-4 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="Enter your search query...">
+                    <div id="searchStatus" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-sm text-indigo-600"></div>
+                </div>
+                <button onclick="indexBooks()" 
+                        id="indexButton"
+                        class="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
+                    Index Books
+                </button>
+            </div>
+
+            <!-- Add search info display -->
+            <div id="searchInfo" class="hidden mb-4 text-sm text-gray-600"></div>
+
+            <!-- Indexing progress -->
+            <div id="indexingProgress" class="hidden mb-8">
+                <div class="flex justify-between mb-2">
+                    <span id="progressText" class="text-sm text-gray-600"></span>
+                    <span id="progressCount" class="text-sm text-gray-500"></span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progressBar" class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div id="results" class="space-y-4"></div>
+            
+            <div id="loading" class="hidden text-center py-4">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let searchTimeout;
+        let currentSearch = null;
+        const searchInput = document.getElementById('searchInput');
+        const resultsDiv = document.getElementById('results');
+        const searchStatus = document.getElementById('searchStatus');
+        const searchInfo = document.getElementById('searchInfo');
+        const loadingDiv = document.getElementById('loading');
+
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(performSearch, 300);
+        });
+
+        function createBookResult(result) {
+            const div = document.createElement('div');
+            div.className = 'bg-white p-6 rounded-lg shadow-md';
+            
+            // Header with filename and score
+            const header = document.createElement('div');
+            header.className = 'flex justify-between items-start mb-2';
+            header.innerHTML = `
+                <h3 class="text-lg font-semibold text-gray-800">${result.filename}</h3>
+                <span class="text-sm text-gray-500">Matches: ${result.score} pages</span>
+            `;
+            
+            // Page numbers
+            const pagesDiv = document.createElement('div');
+            pagesDiv.className = 'mb-4 flex flex-wrap gap-1';
+            pagesDiv.innerHTML = `Pages: ${result.pages.map(page => 
+                `<span class="page-number" data-page="${page}">${page}</span>`
+            ).join('')}`;
+            
+            // Snippet container
+            const snippetDiv = document.createElement('div');
+            snippetDiv.className = 'text-gray-600 mt-2';
+            
+            // Add click handlers for page numbers
+            pagesDiv.addEventListener('click', (e) => {
+                if (e.target.classList.contains('page-number')) {
+                    // Update active state
+                    pagesDiv.querySelectorAll('.page-number').forEach(el => 
+                        el.classList.remove('active')
+                    );
+                    e.target.classList.add('active');
+                    
+                    // Show snippet
+                    const page = e.target.dataset.page;
+                    snippetDiv.innerHTML = result.snippets[page];
+                }
+            });
+            
+            // Show first page by default
+            if (result.pages.length > 0) {
+                const firstPage = result.pages[0];
+                pagesDiv.querySelector(`[data-page="${firstPage}"]`).classList.add('active');
+                snippetDiv.innerHTML = result.snippets[firstPage];
+            }
+            
+            div.appendChild(header);
+            div.appendChild(pagesDiv);
+            div.appendChild(snippetDiv);
+            
+            return div;
+        }
+
+        async function performSearch() {
+            const query = searchInput.value.trim();
+            if (!query) {
+                resultsDiv.innerHTML = '';
+                searchStatus.classList.add('hidden');
+                searchInfo.classList.add('hidden');
+                return;
+            }
+
+            // Show search in progress
+            searchInput.classList.add('search-in-progress');
+            searchStatus.textContent = 'Searching...';
+            searchStatus.classList.remove('hidden');
+            searchStatus.classList.add('search-pulse');
+            
+            const startTime = performance.now();
+
+            try {
+                const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+                const results = await response.json();
+                
+                const endTime = performance.now();
+                const searchTime = ((endTime - startTime) / 1000).toFixed(2);
+                
+                resultsDiv.innerHTML = '';
+                if (results.length > 0) {
+                    const totalPages = results.reduce((sum, r) => sum + r.pages.length, 0);
+                    searchInfo.innerHTML = `Found matches in ${results.length} book${results.length !== 1 ? 's' : ''} ` +
+                                         `(${totalPages} page${totalPages !== 1 ? 's' : ''}) ` +
+                                         `in ${searchTime} seconds`;
+                    searchInfo.classList.remove('hidden');
+                    
+                    results.forEach(result => {
+                        resultsDiv.appendChild(createBookResult(result));
+                    });
+                } else {
+                    searchInfo.innerHTML = `No results found (${searchTime} seconds)`;
+                    searchInfo.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                resultsDiv.innerHTML = '<div class="text-red-500">Search failed. Please try again.</div>';
+            } finally {
+                // Hide search progress
+                searchInput.classList.remove('search-in-progress');
+                searchStatus.classList.add('hidden');
+                searchStatus.classList.remove('search-pulse');
+            }
+        }
+
+        async function indexBooks() {
+            const progressDiv = document.getElementById('indexingProgress');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const progressCount = document.getElementById('progressCount');
+            const indexButton = document.getElementById('indexButton');
+            
+            try {
+                // Show progress bar and disable button
+                progressDiv.classList.remove('hidden');
+                indexButton.disabled = true;
+                indexButton.classList.add('opacity-50');
+                progressBar.style.width = '0%';
+                
+                // Start streaming response
+                const response = await fetch('/index_books');
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                while (true) {
+                    const {value, done} = await reader.read();
+                    if (done) break;
+                    
+                    // Process each line of the response
+                    const lines = decoder.decode(value).split('\n');
+                    for (const line of lines) {
+                        if (!line) continue;
+                        
+                        const update = JSON.parse(line);
+                        
+                        if (update.error) {
+                            progressText.textContent = `Error: ${update.error}`;
+                            progressText.classList.add('text-red-500');
+                            break;
+                        }
+                        
+                        if (update.status === 'cleanup') {
+                            progressText.textContent = update.message;
+                            progressCount.textContent = '';
+                            progressBar.style.width = '0%';
+                        }
+                        
+                        if (update.status === 'indexing') {
+                            const percent = (update.current / update.total) * 100;
+                            progressBar.style.width = `${percent}%`;
+                            progressText.textContent = `Indexing: ${update.filename}`;
+                            progressCount.textContent = `${update.current} / ${update.total}`;
+                        }
+                        
+                        if (update.status === 'complete') {
+                            progressBar.style.width = '100%';
+                            progressText.textContent = update.message;
+                            progressCount.textContent = '';
+                            setTimeout(() => {
+                                progressDiv.classList.add('hidden');
+                            }, 2000);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Indexing error:', error);
+                progressText.textContent = 'Failed to index books. Please try again.';
+                progressText.classList.add('text-red-500');
+            } finally {
+                // Re-enable button
+                indexButton.disabled = false;
+                indexButton.classList.remove('opacity-50');
+            }
+        }
+    </script>
+</body>
+</html> 
