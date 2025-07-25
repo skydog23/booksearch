@@ -14,6 +14,10 @@ instance/
 # Whoosh index
 index/
 
+# Data files
+data/
+*.pdf
+
 # IDE
 .idea/
 .vscode/
