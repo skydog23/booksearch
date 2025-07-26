@@ -22,14 +22,25 @@ pip install -r requirements.txt
 
 2. Place PDF books in the `data` directory
 
-3. Run the application:
+3. Run the setup and start script:
 ```bash
-python app.py  # For the main search application
-# or
-python pdf_test.py  # For the PDF viewer test application
+./command.sh
 ```
 
-4. Access the application at http://localhost:8080 (or the port shown in the console)
+This script will:
+- Set up the virtual environment
+- Download and install PDF.js viewer
+- Create necessary directories
+- Build the search index from your PDF files
+- Start the Flask server
+
+The application will be available at http://localhost:8087
+
+## Development Notes
+
+- The search index is stored in the `index` directory and is automatically rebuilt when running `command.sh`
+- PDF.js viewer files are downloaded during first run and stored in `static/pdfjs`
+- Both the index and PDF.js directories are excluded from git
 
 ## Technologies Used
 
