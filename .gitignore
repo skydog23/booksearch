@@ -18,6 +18,9 @@ index/
 data/
 *.pdf
 
+# PDF.js library files
+static/pdfjs/
+
 # IDE
 .idea/
 .vscode/
