@@ -49,6 +49,20 @@ The script will automatically:
 
 The application will be available at http://localhost:8087
 
+## Package Versions
+
+The application uses specific versions of key packages:
+- Flask 3.1.1: Web framework
+- Whoosh 2.7.4: Search engine
+- pdfplumber 0.10.3: PDF text extraction
+- PyPDF2 3.0.1: PDF metadata extraction
+
+If you need to update packages in an existing installation:
+```bash
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt --upgrade
+```
+
 ## Adding Books
 
 1. Place your PDF files in the `data` directory
