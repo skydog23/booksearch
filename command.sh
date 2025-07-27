@@ -29,6 +29,10 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Verify we're using the correct Python
+echo "Using Python from: $(which python)"
+echo "Python version: $(python --version)"
+
 # Upgrade pip to latest version
 echo "Upgrading pip..."
 python -m pip install --upgrade pip
@@ -46,6 +50,23 @@ else
     echo "requirements.txt not found!"
     exit 1
 fi
+
+# Verify Flask installation
+echo "Verifying Flask installation..."
+if ! python -c "import flask; print(f'Flask version: {flask.__version__}')" ; then
+    echo "Flask import failed. Trying to install Flask directly..."
+    pip install flask
+    if ! python -c "import flask; print(f'Flask version: {flask.__version__}')" ; then
+        echo "Flask installation failed. Please try installing manually:"
+        echo "source venv/bin/activate"
+        echo "pip install flask"
+        exit 1
+    fi
+fi
+
+# Show installed packages
+echo "Installed packages:"
+pip list
 
 # Create data directory if it doesn't exist
 echo "Setting up directories..."
