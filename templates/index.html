@@ -36,47 +36,74 @@
         .search-pulse {
             animation: pulse 1.5s ease-in-out infinite;
         }
+        #pdf-viewer {
+            width: 100%;
+            height: calc(100vh - 2rem);
+            border: none;
+        }
+        .results-column {
+            height: calc(100vh - 2rem);
+            overflow-y: auto;
+        }
+        @media (max-width: 1024px) {
+            .results-column {
+                height: 50vh;
+            }
+            #pdf-viewer {
+                height: 50vh;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100">
-    <div class="container mx-auto px-4 py-8">
-        <h1 class="text-4xl font-bold text-center mb-8 text-gray-800">Book Search</h1>
-        
-        <div class="max-w-2xl mx-auto">
-            <div class="flex gap-4 mb-8">
-                <div class="flex-1 relative">
-                    <input type="text" 
-                           id="searchInput" 
-                           class="w-full p-4 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                           placeholder="Enter your search query...">
-                    <div id="searchStatus" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-sm text-indigo-600"></div>
-                </div>
-                <button onclick="indexBooks()" 
-                        id="indexButton"
-                        class="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
-                    Index Books
-                </button>
-            </div>
-
-            <!-- Add search info display -->
-            <div id="searchInfo" class="hidden mb-4 text-sm text-gray-600"></div>
-
-            <!-- Indexing progress -->
-            <div id="indexingProgress" class="hidden mb-8">
-                <div class="flex justify-between mb-2">
-                    <span id="progressText" class="text-sm text-gray-600"></span>
-                    <span id="progressCount" class="text-sm text-gray-500"></span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-2.5">
-                    <div id="progressBar" class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div>
-                </div>
-            </div>
-
-            <div id="results" class="space-y-4"></div>
+    <div class="flex flex-col lg:flex-row h-screen">
+        <!-- Left Column: Search Results -->
+        <div class="w-full lg:w-2/5 p-4">
+            <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">Book Search</h1>
             
-            <div id="loading" class="hidden text-center py-4">
-                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+            <div class="mb-6">
+                <div class="flex gap-4 mb-4">
+                    <div class="flex-1 relative">
+                        <input type="text" 
+                               id="searchInput" 
+                               class="w-full p-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="Enter your search query...">
+                        <div id="searchStatus" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-sm text-indigo-600"></div>
+                    </div>
+                    <button onclick="indexBooks()" 
+                            id="indexButton"
+                            class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
+                        Index
+                    </button>
+                </div>
+
+                <!-- Add search info display -->
+                <div id="searchInfo" class="hidden mb-4 text-sm text-gray-600"></div>
+
+                <!-- Indexing progress -->
+                <div id="indexingProgress" class="hidden mb-6">
+                    <div class="flex justify-between mb-2">
+                        <span id="progressText" class="text-sm text-gray-600"></span>
+                        <span id="progressCount" class="text-sm text-gray-500"></span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="progressBar" class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
             </div>
+
+            <div class="results-column">
+                <div id="results" class="space-y-4"></div>
+                
+                <div id="loading" class="hidden text-center py-4">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: PDF Viewer -->
+        <div class="w-full lg:w-3/5 bg-gray-800 p-4">
+            <iframe id="pdf-viewer" class="bg-white rounded-lg shadow-lg"></iframe>
         </div>
     </div>
 
@@ -88,6 +115,15 @@
         const searchStatus = document.getElementById('searchStatus');
         const searchInfo = document.getElementById('searchInfo');
         const loadingDiv = document.getElementById('loading');
+        const pdfViewer = document.getElementById('pdf-viewer');
+
+        function loadPdfPage(filename, page) {
+            // Remove .pdf extension if present
+            filename = filename.replace(/\.pdf$/, '');
+            const pdfUrl = `/pdf/${encodeURIComponent(filename)}/${page}`;
+            const viewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfUrl)}#page=${page}`;
+            pdfViewer.src = viewerUrl;
+        }
 
         searchInput.addEventListener('input', function() {
             clearTimeout(searchTimeout);
@@ -129,6 +165,9 @@
                     // Show snippet
                     const page = e.target.dataset.page;
                     snippetDiv.innerHTML = result.snippets[page];
+
+                    // Load PDF page
+                    loadPdfPage(result.filename, page);
                 }
             });
             
@@ -181,6 +220,11 @@
                     results.forEach(result => {
                         resultsDiv.appendChild(createBookResult(result));
                     });
+
+                    // Load first result's first page
+                    if (results[0].pages.length > 0) {
+                        loadPdfPage(results[0].filename, results[0].pages[0]);
+                    }
                 } else {
                     searchInfo.innerHTML = `No results found (${searchTime} seconds)`;
                     searchInfo.classList.remove('hidden');

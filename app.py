@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, Response
+from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory
 import os
 from whoosh.index import create_in, open_dir
 from whoosh.fields import Schema, TEXT, ID, STORED
@@ -73,6 +73,27 @@ def clean_index(data_dir):
 @app.route('/')
 def home():
     return render_template('index.html')
+
+@app.route('/pdf/<path:filename>/<int:page>')
+def serve_pdf(filename, page):
+    """Serve a PDF file"""
+    try:
+        # Add .pdf extension if not present
+        if not filename.lower().endswith('.pdf'):
+            filename = filename + '.pdf'
+            
+        pdf_path = Path('data') / filename
+        if not pdf_path.exists():
+            return {"error": f"PDF file '{filename}' not found in data directory"}, 404
+        
+        return send_file(pdf_path, mimetype='application/pdf')
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+@app.route('/pdfjs/<path:filename>')
+def serve_pdfjs(filename):
+    """Serve PDF.js viewer files"""
+    return send_from_directory('static/pdfjs', filename)
 
 @app.route('/index_books')
 def index_books():
