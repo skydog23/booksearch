@@ -168,6 +168,7 @@
         let currentSearch = null;
         let currentSearchTerm = '';  // Store current search term
         let searchController = null;  // Add AbortController for search requests
+        let currentPdfFile = null;  // Track current PDF file
         const searchInput = document.getElementById('searchInput');
         const resultsDiv = document.getElementById('results');
         const searchStatus = document.getElementById('searchStatus');
@@ -190,7 +191,6 @@
         function loadPdfPage(filename, page) {
             // Remove .pdf extension if present
             filename = filename.replace(/\.pdf$/, '');
-            const pdfUrl = `/pdf/${encodeURIComponent(filename)}/${page}`;
             
             // Clean up search term for highlighting by removing logical operators
             let highlightTerm = currentSearchTerm;
@@ -205,23 +205,49 @@
                     .filter(term => term.length > 2)  // Only highlight terms longer than 2 chars
                     .join(' ');  // Join back with spaces
             }
-            
-            // Add search term to URL if exists
-            const searchParam = highlightTerm ? `&search=${encodeURIComponent(highlightTerm)}` : '';
-            const viewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfUrl)}#page=${page}${searchParam}`;
-            
-            // Load PDF viewer
-            pdfViewer.src = viewerUrl;
-            
-            // Update the title
-            updatePdfTitle(filename);
 
-            // Set up message listener for PDF viewer iframe load
-            pdfViewer.onload = function() {
-                // Wait a bit for PDF.js to initialize
+            // If this is a different PDF, load it completely
+            if (currentPdfFile !== filename) {
+                currentPdfFile = filename;
+                const pdfUrl = `/pdf/${encodeURIComponent(filename)}/${page}`;
+                const searchParam = highlightTerm ? `&search=${encodeURIComponent(highlightTerm)}` : '';
+                const viewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfUrl)}#page=${page}${searchParam}`;
+                pdfViewer.src = viewerUrl;
+                
+                // Update the title
+                updatePdfTitle(filename);
+
+                // Set up message listener for PDF viewer iframe load
+                pdfViewer.onload = function() {
+                    // Wait a bit for PDF.js to initialize
+                    setTimeout(() => {
+                        if (highlightTerm) {
+                            // Send search command to PDF viewer
+                            pdfViewer.contentWindow.postMessage({
+                                type: 'find',
+                                query: highlightTerm,
+                                highlightAll: true,
+                                caseSensitive: false,
+                            }, '*');
+                        }
+                    }, 1000);
+                };
+            } else {
+                // Just update the URL hash to navigate to the new page
+                const currentUrl = new URL(pdfViewer.src);
+                const hashParts = currentUrl.hash.split('&');
+                const newHashParts = hashParts.map(part => {
+                    if (part.startsWith('#page=')) {
+                        return `#page=${page}`;
+                    }
+                    return part;
+                });
+                currentUrl.hash = newHashParts.join('&');
+                pdfViewer.src = currentUrl.toString();
+
+                // Update highlighting if needed
                 setTimeout(() => {
                     if (highlightTerm) {
-                        // Send search command to PDF viewer
                         pdfViewer.contentWindow.postMessage({
                             type: 'find',
                             query: highlightTerm,
@@ -229,8 +255,8 @@
                             caseSensitive: false,
                         }, '*');
                     }
-                }, 1000);
-            };
+                }, 100);
+            }
         }
 
         searchInput.addEventListener('input', function() {
@@ -264,10 +290,11 @@
             // Add click handlers for page numbers
             pagesDiv.addEventListener('click', (e) => {
                 if (e.target.classList.contains('page-number')) {
-                    // Update active state
-                    pagesDiv.querySelectorAll('.page-number').forEach(el => 
+                    // Remove active state from all page numbers across all books
+                    document.querySelectorAll('.page-number').forEach(el => 
                         el.classList.remove('active')
                     );
+                    // Add active state to clicked page number
                     e.target.classList.add('active');
                     
                     // Show snippet
@@ -278,13 +305,6 @@
                     loadPdfPage(result.filename, page);
                 }
             });
-            
-            // Show first page by default
-            if (result.pages.length > 0) {
-                const firstPage = result.pages[0];
-                pagesDiv.querySelector(`[data-page="${firstPage}"]`).classList.add('active');
-                snippetDiv.innerHTML = result.snippets[firstPage];
-            }
             
             div.appendChild(header);
             div.appendChild(pagesDiv);
@@ -337,14 +357,20 @@
                                              `in ${searchTime} seconds`;
                         searchInfo.classList.remove('hidden');
                         
-                        results.forEach(result => {
-                            resultsDiv.appendChild(createBookResult(result));
+                        // Create result elements
+                        results.forEach((result, index) => {
+                            const resultElement = createBookResult(result);
+                            resultsDiv.appendChild(resultElement);
+                            
+                            // Only set active and load PDF for first page of first book
+                            if (index === 0 && result.pages.length > 0) {
+                                const firstPageBtn = resultElement.querySelector(`[data-page="${result.pages[0]}"]`);
+                                if (firstPageBtn) {
+                                    firstPageBtn.classList.add('active');
+                                    loadPdfPage(result.filename, result.pages[0]);
+                                }
+                            }
                         });
-
-                        // Load first result's first page
-                        if (results[0].pages.length > 0) {
-                            loadPdfPage(results[0].filename, results[0].pages[0]);
-                        }
                     } else {
                         searchInfo.innerHTML = `No results found (${searchTime} seconds)`;
                         searchInfo.classList.remove('hidden');
