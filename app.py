@@ -6,6 +6,8 @@ from whoosh.qparser import QueryParser
 import pdfplumber
 from pathlib import Path
 import json
+from PyPDF2 import PdfReader
+from functools import lru_cache
 
 app = Flask(__name__)
 
@@ -16,6 +18,25 @@ schema = Schema(
     page_num=STORED,
     content=TEXT(stored=True)
 )
+
+@lru_cache(maxsize=1000)
+def get_pdf_title(filename):
+    """Extract title from PDF metadata with caching"""
+    try:
+        pdf_path = Path('data') / filename
+        if not pdf_path.exists():
+            return filename
+        
+        reader = PdfReader(pdf_path)
+        metadata = reader.metadata
+        if metadata and metadata.get('/Title'):
+            return metadata['/Title']
+        
+        # If no metadata title, return filename without .pdf
+        return filename.replace('.pdf', '')
+    except Exception as e:
+        print(f"Error extracting title from {filename}: {e}")
+        return filename
 
 def init_index():
     """Initialize or open the search index"""
@@ -89,6 +110,14 @@ def serve_pdf(filename, page):
         return send_file(pdf_path, mimetype='application/pdf')
     except Exception as e:
         return {"error": str(e)}, 500
+
+@app.route('/pdf/title/<path:filename>')
+def get_title(filename):
+    """Get the title of a PDF file"""
+    if not filename.lower().endswith('.pdf'):
+        filename = filename + '.pdf'
+    title = get_pdf_title(filename)
+    return jsonify({"title": title})
 
 @app.route('/pdfjs/<path:filename>')
 def serve_pdfjs(filename):
