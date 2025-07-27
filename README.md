@@ -10,37 +10,67 @@ A web application for searching and viewing PDF books. Features include:
   - Text search within PDFs
   - Thumbnail view
   - Document outline
+- Search result snippets showing matched text context
+- Boolean search operators (AND, OR, NOT)
+- Exact phrase matching with quotes
 
-## Setup
+## Prerequisites
 
-1. Create a virtual environment and install dependencies:
+- Python 3.6 or higher
+- For Ubuntu/Debian: `sudo apt-get install python3-venv`
+- For macOS: Python 3 from Homebrew (`brew install python3`) or python.org
+- For Windows: Python 3 from python.org (ensure "Add Python to PATH" is checked during installation)
+
+## Quick Start
+
+1. Clone the repository:
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+git clone [repository-url]
+cd booksearch
 ```
 
-2. Place PDF books in the `data` directory
+2. Make the setup script executable:
+```bash
+chmod +x command.sh
+```
 
-3. Run the setup and start script:
+3. Run the setup script:
 ```bash
 ./command.sh
 ```
 
-This script will:
-- Set up the virtual environment
-- Download and install PDF.js viewer
+The script will automatically:
+- Create a Python virtual environment if needed
+- Install all required dependencies
+- Download and set up the PDF.js viewer
 - Create necessary directories
 - Build the search index from your PDF files
 - Start the Flask server
 
 The application will be available at http://localhost:8087
 
+## Adding Books
+
+1. Place your PDF files in the `data` directory
+2. Restart the application (or click the "Index" button in the web interface)
+3. The books will be automatically indexed and made searchable
+
+## Search Features
+
+- Basic search: Just type words to find them in any book
+- Phrase search: Use quotes for exact phrases, e.g., `"machine learning"`
+- Boolean operators: 
+  - AND: `neural AND networks` (both terms must appear)
+  - OR: `python OR javascript` (either term)
+  - NOT: `programming NOT basic` (exclude terms)
+- Wildcards: `program*` matches programming, programs, etc.
+
 ## Development Notes
 
-- The search index is stored in the `index` directory and is automatically rebuilt when running `command.sh`
+- The search index is stored in the `index` directory and is automatically rebuilt when needed
 - PDF.js viewer files are downloaded during first run and stored in `static/pdfjs`
 - Both the index and PDF.js directories are excluded from git
+- The application uses timestamp checking to avoid unnecessary reindexing
 
 ## Technologies Used
 
@@ -48,4 +78,5 @@ The application will be available at http://localhost:8087
 - Whoosh: Full-text search engine
 - PDF.js: PDF viewer
 - pdfplumber: PDF text extraction
+- PyPDF2: PDF metadata extraction
 - TailwindCSS: Styling 

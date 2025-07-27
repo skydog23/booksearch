@@ -17,6 +17,7 @@
             border-radius: 4px;
             background-color: #e2e8f0;
             transition: background-color 0.2s;
+            position: relative;  /* For tooltip positioning */
         }
         .page-number:hover {
             background-color: #cbd5e0;
@@ -24,6 +25,43 @@
         .page-number.active {
             background-color: #4a5568;
             color: white;
+        }
+        .page-tooltip {
+            display: none;
+            position: absolute;
+            top: 100%;  /* Changed from bottom: 100% to top: 100% */
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 8px;  /* Changed from margin-bottom to margin-top */
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            z-index: 50;
+            width: 400px;  /* Increased from 300px */
+            max-width: 90vw;  /* Prevent tooltip from extending beyond viewport */
+            font-size: 0.875rem;
+            color: #4a5568;
+            text-align: left;
+            white-space: pre-wrap;  /* Better handling of whitespace */
+            line-height: 1.5;  /* Better readability */
+        }
+        .page-number:hover .page-tooltip {
+            display: block;
+        }
+        /* Move arrow to top of tooltip */
+        .page-tooltip::after {
+            content: '';
+            position: absolute;
+            top: -5px;  /* Changed from bottom: -5px */
+            left: 50%;
+            transform: translateX(-50%) rotate(45deg);
+            width: 10px;
+            height: 10px;
+            background: white;
+            border-left: 1px solid #e2e8f0;  /* Changed from border-right */
+            border-top: 1px solid #e2e8f0;   /* Changed from border-bottom */
         }
         .search-in-progress {
             border-color: #4f46e5;
@@ -276,16 +314,15 @@
                 <span class="text-sm text-gray-500">Matches: ${result.score} pages</span>
             `;
             
-            // Page numbers
+            // Page numbers with tooltips
             const pagesDiv = document.createElement('div');
             pagesDiv.className = 'mb-4 flex flex-wrap gap-1';
-            pagesDiv.innerHTML = `Pages: ${result.pages.map(page => 
-                `<span class="page-number" data-page="${page}">${page}</span>`
-            ).join('')}`;
-            
-            // Snippet container
-            const snippetDiv = document.createElement('div');
-            snippetDiv.className = 'text-gray-600 mt-2';
+            pagesDiv.innerHTML = `Pages: ${result.pages.map(page => `
+                <span class="page-number" data-page="${page}">
+                    ${page}
+                    <div class="page-tooltip">${result.snippets[page]}</div>
+                </span>
+            `).join('')}`;
             
             // Add click handlers for page numbers
             pagesDiv.addEventListener('click', (e) => {
@@ -297,18 +334,14 @@
                     // Add active state to clicked page number
                     e.target.classList.add('active');
                     
-                    // Show snippet
-                    const page = e.target.dataset.page;
-                    snippetDiv.innerHTML = result.snippets[page];
-
                     // Load PDF page
+                    const page = e.target.dataset.page;
                     loadPdfPage(result.filename, page);
                 }
             });
             
             div.appendChild(header);
             div.appendChild(pagesDiv);
-            div.appendChild(snippetDiv);
             
             return div;
         }
