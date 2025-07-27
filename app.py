@@ -210,11 +210,11 @@ def search():
                 if filename not in books:
                     books[filename] = {
                         'filename': filename,
-                        'pages': [],
+                        'pages': set(),  # Use a set for unique pages
                         'snippets': {},
                         'score': 0
                     }
-                books[filename]['pages'].append(r['page_num'])
+                books[filename]['pages'].add(r['page_num'])
                 books[filename]['snippets'][r['page_num']] = r.highlights("content")
                 books[filename]['score'] += 1
 
@@ -222,9 +222,9 @@ def search():
             hits = list(books.values())
             hits.sort(key=lambda x: x['score'], reverse=True)
             
-            # Ensure pages are sorted numerically within each book
+            # Convert page sets to sorted lists
             for hit in hits:
-                hit['pages'].sort()
+                hit['pages'] = sorted(list(hit['pages']))
             
             return jsonify(hits)
         except Exception as e:

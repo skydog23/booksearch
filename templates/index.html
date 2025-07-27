@@ -191,8 +191,23 @@
             // Remove .pdf extension if present
             filename = filename.replace(/\.pdf$/, '');
             const pdfUrl = `/pdf/${encodeURIComponent(filename)}/${page}`;
+            
+            // Clean up search term for highlighting by removing logical operators
+            let highlightTerm = currentSearchTerm;
+            if (currentSearchTerm) {
+                highlightTerm = currentSearchTerm
+                    .replace(/ AND /g, ' ')
+                    .replace(/ OR /g, ' ')
+                    .replace(/ NOT /g, ' ')
+                    .replace(/"/g, '')  // Remove quotes
+                    .trim()
+                    .split(/\s+/)  // Split on whitespace
+                    .filter(term => term.length > 2)  // Only highlight terms longer than 2 chars
+                    .join(' ');  // Join back with spaces
+            }
+            
             // Add search term to URL if exists
-            const searchParam = currentSearchTerm ? `&search=${encodeURIComponent(currentSearchTerm)}` : '';
+            const searchParam = highlightTerm ? `&search=${encodeURIComponent(highlightTerm)}` : '';
             const viewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfUrl)}#page=${page}${searchParam}`;
             
             // Load PDF viewer
@@ -205,11 +220,11 @@
             pdfViewer.onload = function() {
                 // Wait a bit for PDF.js to initialize
                 setTimeout(() => {
-                    if (currentSearchTerm) {
+                    if (highlightTerm) {
                         // Send search command to PDF viewer
                         pdfViewer.contentWindow.postMessage({
                             type: 'find',
-                            query: currentSearchTerm,
+                            query: highlightTerm,
                             highlightAll: true,
                             caseSensitive: false,
                         }, '*');
