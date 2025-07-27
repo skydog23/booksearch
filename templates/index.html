@@ -53,6 +53,36 @@
                 height: 50vh;
             }
         }
+        .search-help {
+            position: absolute;
+            right: 0.75rem;  /* 12px from right edge */
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10;
+        }
+        .search-help-tooltip {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            margin-top: 0.5rem;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            z-index: 50;
+            width: 300px;
+            font-size: 0.875rem;
+            color: #4a5568;
+        }
+        .search-help:hover .search-help-tooltip {
+            display: block;
+        }
+        .search-input-wrapper {
+            position: relative;
+            flex: 1;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -63,12 +93,34 @@
             
             <div class="mb-6">
                 <div class="flex gap-4 mb-4">
-                    <div class="flex-1 relative">
+                    <div class="search-input-wrapper">
                         <input type="text" 
                                id="searchInput" 
-                               class="w-full p-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               class="w-full p-3 pr-10 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                placeholder="Enter your search query...">
                         <div id="searchStatus" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-sm text-indigo-600"></div>
+                        <!-- Search Help Button -->
+                        <div class="search-help">
+                            <button class="text-gray-400 hover:text-gray-600" title="Search Help">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                            <div class="search-help-tooltip">
+                                <h3 class="font-semibold mb-2">Search Patterns:</h3>
+                                <ul class="space-y-2">
+                                    <li><code class="bg-gray-100 px-1">word1 word2</code>: Find both words</li>
+                                    <li><code class="bg-gray-100 px-1">word1 OR word2</code>: Find either word</li>
+                                    <li><code class="bg-gray-100 px-1">"exact phrase"</code>: Find exact phrase</li>
+                                    <li><code class="bg-gray-100 px-1">word*</code>: Wildcard search (e.g., math* finds mathematics)</li>
+                                    <li><code class="bg-gray-100 px-1">title:word</code>: Search in titles only</li>
+                                    <li><code class="bg-gray-100 px-1">NOT word</code>: Exclude word</li>
+                                </ul>
+                                <div class="mt-2 text-sm text-gray-600">
+                                    Combine patterns: <code class="bg-gray-100 px-1">"exact phrase" AND word* NOT other</code>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <button onclick="indexBooks()" 
                             id="indexButton"
@@ -115,6 +167,7 @@
         let searchTimeout;
         let currentSearch = null;
         let currentSearchTerm = '';  // Store current search term
+        let searchController = null;  // Add AbortController for search requests
         const searchInput = document.getElementById('searchInput');
         const resultsDiv = document.getElementById('results');
         const searchStatus = document.getElementById('searchStatus');
@@ -236,6 +289,12 @@
                 return;
             }
 
+            // Cancel any ongoing search
+            if (searchController) {
+                searchController.abort();
+            }
+            searchController = new AbortController();
+
             // Show search in progress
             searchInput.classList.add('search-in-progress');
             searchStatus.textContent = 'Searching...';
@@ -245,40 +304,51 @@
             const startTime = performance.now();
 
             try {
-                const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+                const response = await fetch(`/search?q=${encodeURIComponent(query)}`, {
+                    signal: searchController.signal
+                });
                 const results = await response.json();
                 
-                const endTime = performance.now();
-                const searchTime = ((endTime - startTime) / 1000).toFixed(2);
-                
-                resultsDiv.innerHTML = '';
-                if (results.length > 0) {
-                    const totalPages = results.reduce((sum, r) => sum + r.pages.length, 0);
-                    searchInfo.innerHTML = `Found matches in ${results.length} book${results.length !== 1 ? 's' : ''} ` +
-                                         `(${totalPages} page${totalPages !== 1 ? 's' : ''}) ` +
-                                         `in ${searchTime} seconds`;
-                    searchInfo.classList.remove('hidden');
+                // Only update UI if this is still the current search
+                if (query === searchInput.value.trim()) {
+                    const endTime = performance.now();
+                    const searchTime = ((endTime - startTime) / 1000).toFixed(2);
                     
-                    results.forEach(result => {
-                        resultsDiv.appendChild(createBookResult(result));
-                    });
+                    resultsDiv.innerHTML = '';
+                    if (results.length > 0) {
+                        const totalPages = results.reduce((sum, r) => sum + r.pages.length, 0);
+                        searchInfo.innerHTML = `Found matches in ${results.length} book${results.length !== 1 ? 's' : ''} ` +
+                                             `(${totalPages} page${totalPages !== 1 ? 's' : ''}) ` +
+                                             `in ${searchTime} seconds`;
+                        searchInfo.classList.remove('hidden');
+                        
+                        results.forEach(result => {
+                            resultsDiv.appendChild(createBookResult(result));
+                        });
 
-                    // Load first result's first page
-                    if (results[0].pages.length > 0) {
-                        loadPdfPage(results[0].filename, results[0].pages[0]);
+                        // Load first result's first page
+                        if (results[0].pages.length > 0) {
+                            loadPdfPage(results[0].filename, results[0].pages[0]);
+                        }
+                    } else {
+                        searchInfo.innerHTML = `No results found (${searchTime} seconds)`;
+                        searchInfo.classList.remove('hidden');
                     }
-                } else {
-                    searchInfo.innerHTML = `No results found (${searchTime} seconds)`;
-                    searchInfo.classList.remove('hidden');
                 }
             } catch (error) {
+                if (error.name === 'AbortError') {
+                    // Search was canceled, do nothing
+                    return;
+                }
                 console.error('Search error:', error);
                 resultsDiv.innerHTML = '<div class="text-red-500">Search failed. Please try again.</div>';
             } finally {
-                // Hide search progress
-                searchInput.classList.remove('search-in-progress');
-                searchStatus.classList.add('hidden');
-                searchStatus.classList.remove('search-pulse');
+                // Hide search progress only if this is still the current search
+                if (query === searchInput.value.trim()) {
+                    searchInput.classList.remove('search-in-progress');
+                    searchStatus.classList.add('hidden');
+                    searchStatus.classList.remove('search-pulse');
+                }
             }
         }
 

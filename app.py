@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify, Response, send_file,
 import os
 from whoosh.index import create_in, open_dir
 from whoosh.fields import Schema, TEXT, ID, STORED
-from whoosh.qparser import QueryParser
+from whoosh.qparser import QueryParser, OrGroup
 import pdfplumber
 from pathlib import Path
 import json
@@ -187,34 +187,49 @@ def search():
 
     ix = init_index()
     with ix.searcher() as searcher:
-        query_parser = QueryParser("content", ix.schema)
-        q = query_parser.parse(query)
-        results = searcher.search(q, limit=None)
+        # Configure the query parser to use OR as the default operator
+        query_parser = QueryParser("content", ix.schema, group=OrGroup)
         
-        # Group results by filename
-        books = {}
-        for r in results:
-            filename = r['filename']
-            if filename not in books:
-                books[filename] = {
-                    'filename': filename,
-                    'pages': [],
-                    'snippets': {},
-                    'score': 0
-                }
-            books[filename]['pages'].append(r['page_num'])
-            books[filename]['snippets'][r['page_num']] = r.highlights("content")
-            books[filename]['score'] += 1
+        try:
+            # Convert common words to Whoosh operators
+            query = (query.replace(' AND ', ' AND ')  # Already correct format
+                         .replace(' OR ', ' OR ')     # Already correct format
+                         .replace(' NOT ', ' NOT ')   # Already correct format
+                         .replace('"', '"'))         # Keep quotes as is
+            
+            print(f"Query: {query}")
+            q = query_parser.parse(query)
+            print(f"Parsed query: {q}")
+            
+            results = searcher.search(q, limit=None)
+            
+            # Group results by filename
+            books = {}
+            for r in results:
+                filename = r['filename']
+                if filename not in books:
+                    books[filename] = {
+                        'filename': filename,
+                        'pages': [],
+                        'snippets': {},
+                        'score': 0
+                    }
+                books[filename]['pages'].append(r['page_num'])
+                books[filename]['snippets'][r['page_num']] = r.highlights("content")
+                books[filename]['score'] += 1
 
-        # Convert to list and sort by score
-        hits = list(books.values())
-        hits.sort(key=lambda x: x['score'], reverse=True)
-        
-        # Ensure pages are sorted numerically within each book
-        for hit in hits:
-            hit['pages'].sort()
-        
-        return jsonify(hits)
+            # Convert to list and sort by score
+            hits = list(books.values())
+            hits.sort(key=lambda x: x['score'], reverse=True)
+            
+            # Ensure pages are sorted numerically within each book
+            for hit in hits:
+                hit['pages'].sort()
+            
+            return jsonify(hits)
+        except Exception as e:
+            print(f"Search error: {str(e)}")
+            return jsonify({"error": str(e)}), 400
 
 if __name__ == '__main__':
     app.run(debug=True, port=8087) 
