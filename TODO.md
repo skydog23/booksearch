@@ -1,0 +1,2 @@
+* Add resizable split pane between search results and PDF viewer using Split.js library
+* Fix the highlighting problem with both snippets and pdf viewer: special operators are getting matched  properly but forgotten when doing the highlighting.
