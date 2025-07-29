@@ -31,7 +31,12 @@ def get_pdf_title(filename):
         reader = PdfReader(pdf_path)
         metadata = reader.metadata
         if metadata and metadata.get('/Title'):
-            return metadata['/Title']
+            title = metadata['/Title']
+            # Strip off any "GA ..." prefix from the title string, e.g., "GA 261 - "
+            cleaned_title = re.sub(r'^\s*GA\s+\d+\s*-\s*', '', title).strip()
+            # If stripping the prefix results in an empty string, use the original title
+            # return cleaned_title if cleaned_title else title
+            return title
         
         # If no metadata title, return filename without .pdf
         return filename.replace('.pdf', '')
@@ -247,16 +252,24 @@ def search():
                 if filename not in books:
                     books[filename] = {
                         'filename': filename,
-                        'title': get_pdf_title(filename), # Add the full title here
+                        'title': get_pdf_title(filename),
                         'pages': set(),
                         'snippets': {},
-                        'score': 0,
+                        'score': 0, # This is the page count
+                        'match_count': 0, # This will be the total match count
                         'search_type': search_type,
                         'highlight_terms': highlight_terms
                     }
                 
                 books[filename]['pages'].add(r['page_num'])
                 
+                # Count matches on the current page
+                page_content_lower = r['content'].lower()
+                page_match_count = 0
+                for term in highlight_terms:
+                    page_match_count += page_content_lower.count(term.lower())
+                books[filename]['match_count'] += page_match_count
+
                 # Generate snippet
                 snippet_text = ""
                 if search_type == 'phrase':
@@ -270,7 +283,7 @@ def search():
                 cleaned_snippet = re.sub(r'\s+', ' ', snippet_text).strip()
                 books[filename]['snippets'][r['page_num']] = cleaned_snippet
 
-                books[filename]['score'] += 1
+                books[filename]['score'] += 1 # Increment page count
 
             # Convert to list and sort by score
             hits = list(books.values())

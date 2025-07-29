@@ -64,6 +64,33 @@
             border-left: 1px solid #e2e8f0;  /* Changed from border-right */
             border-top: 1px solid #e2e8f0;   /* Changed from border-bottom */
         }
+        
+        .title-container {
+            position: relative; /* Needed for tooltip positioning */
+        }
+        .title-tooltip {
+            display: none;
+            position: absolute;
+            top: 100%; /* Position tooltip below the title */
+            left: 0;
+            margin-top: 8px; /* Switched from margin-bottom */
+            background: #374151; /* Darker background */
+            color: white;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            z-index: 60; /* Ensure it's above page tooltips */
+            width: max-content; /* Fit the width to the title text */
+            max-width: 400px;
+            font-size: 1rem; /* text-base, reduced from 1.125rem */
+            font-weight: 500;
+            text-align: left;
+            white-space: normal;
+        }
+        .title-container:hover .title-tooltip {
+            display: block;
+        }
+
         .search-in-progress {
             border-color: #4f46e5;
             box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
@@ -306,17 +333,29 @@
         function createBookResult(result) {
             const div = document.createElement('div');
             div.className = 'bg-white px-6 py-3 rounded-lg shadow-md';
+            div.title = `${result.match_count} total matches in this book`; // Add tooltip here
             
             // Main container for title and pages, using flex layout
             const container = document.createElement('div');
             container.className = 'flex items-baseline gap-x-4'; // Aligns title and first row of buttons
 
-            // Title element - set to not shrink, remove .pdf and reduce font size
+            // Create a container for the title and its custom tooltip
+            const titleContainer = document.createElement('div');
+            titleContainer.className = 'title-container flex-shrink-0';
+
+            // Title element (the visible filename)
             const titleEl = document.createElement('h3');
-            // Added 'relative' and 'z-10' to ensure it's receptive to hover events
-            titleEl.className = 'flex-shrink-0 text-base font-semibold text-gray-800 relative z-10';
-            titleEl.textContent = result.filename.replace(/\.pdf$/i, ''); // Remove .pdf extension
-            titleEl.title = result.title; // Set the tooltip to the full title
+            titleEl.className = 'text-base font-semibold text-gray-800';
+            titleEl.textContent = result.filename.replace(/\.pdf$/i, '');
+            
+            // The new custom tooltip element
+            const tooltipEl = document.createElement('div');
+            tooltipEl.className = 'title-tooltip';
+            tooltipEl.textContent = result.title;
+
+            // Append the filename and the tooltip to their container
+            titleContainer.appendChild(titleEl);
+            titleContainer.appendChild(tooltipEl);
             
             // Page numbers container with tooltips
             const pagesDiv = document.createElement('div');
@@ -345,7 +384,7 @@
                 }
             });
             
-            container.appendChild(titleEl);
+            container.appendChild(titleContainer);
             container.appendChild(pagesDiv);
             div.appendChild(container);
             
@@ -391,8 +430,8 @@
                     resultsDiv.innerHTML = '';
                     if (results.length > 0) {
                         const totalPages = results.reduce((sum, r) => sum + r.pages.length, 0);
-                        searchInfo.innerHTML = `Found matches in ${results.length} book${results.length !== 1 ? 's' : ''} ` +
-                                             `(${totalPages} page${totalPages !== 1 ? 's' : ''}) ` +
+                        searchInfo.innerHTML = `Found matches on ${totalPages} page${totalPages !== 1 ? 's' : ''} ` +
+                                             `across ${results.length} book${results.length !== 1 ? 's' : ''} ` +
                                              `in ${searchTime} seconds`;
                         searchInfo.classList.remove('hidden');
                         
