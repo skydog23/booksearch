@@ -1,2 +1,3 @@
 * Add resizable split pane between search results and PDF viewer using Split.js library
 * Fix the highlighting problem with both snippets and pdf viewer: special operators are getting matched  properly but forgotten when doing the highlighting.
+* Sorting the search results: should count matches on each page also and sort accordingly. And the counting of the number of pages is sometimes wrong -- is it counting each occurrence rather than each page?
