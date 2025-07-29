@@ -8,6 +8,7 @@ from pathlib import Path
 import json
 from PyPDF2 import PdfReader
 from functools import lru_cache
+import re
 
 app = Flask(__name__)
 
@@ -90,6 +91,35 @@ def clean_index(data_dir):
                 print(f"Warning: Some files were not properly removed from the index: {removed_files & remaining}")
     
     return removed_files
+
+def highlight_phrases(text, phrases):
+    """Manually highlight phrases in a text snippet."""
+    # Create a context window around the first match
+    first_match_pos = -1
+    for phrase in phrases:
+        pos = text.lower().find(phrase.lower())
+        if pos != -1:
+            first_match_pos = pos
+            break
+    
+    if first_match_pos == -1:
+        return text[:200] # Return start of text if no match found
+
+    start = max(0, first_match_pos - 100)
+    end = min(len(text), first_match_pos + 100)
+    snippet = text[start:end]
+
+    for phrase in phrases:
+        # Escape special regex characters in the phrase
+        escaped_phrase = re.escape(phrase)
+        # Highlight all occurrences of the phrase in the snippet
+        snippet = re.sub(
+            f'({escaped_phrase})',
+            r'<b class="match">\1</b>',
+            snippet,
+            flags=re.IGNORECASE
+        )
+    return f"...{snippet}..."
 
 @app.route('/')
 def home():
@@ -187,20 +217,27 @@ def search():
 
     ix = init_index()
     with ix.searcher() as searcher:
-        # Configure the query parser to use OR as the default operator
         query_parser = QueryParser("content", ix.schema, group=OrGroup)
         
         try:
-            # Convert common words to Whoosh operators
-            query = (query.replace(' AND ', ' AND ')  # Already correct format
-                         .replace(' OR ', ' OR ')     # Already correct format
-                         .replace(' NOT ', ' NOT ')   # Already correct format
-                         .replace('"', '"'))         # Keep quotes as is
+            # Determine search type and extract terms for highlighting
+            search_type = 'terms'
+            highlight_terms = []
             
-            print(f"Query: {query}")
+            # Regex to find quoted phrases
+            phrases = re.findall(r'"([^"]*)"', query)
+            if phrases:
+                search_type = 'phrase'
+                highlight_terms = [p.strip() for p in phrases if p.strip()]
+
+            # Fallback to individual terms if no phrases found or query is not just phrases
+            if not highlight_terms:
+                highlight_terms = [
+                    term for term in query.replace('"', '').split() 
+                    if term.upper() not in ['AND', 'OR', 'NOT']
+                ]
+
             q = query_parser.parse(query)
-            print(f"Parsed query: {q}")
-            
             results = searcher.search(q, limit=None)
             
             # Group results by filename
@@ -210,12 +247,28 @@ def search():
                 if filename not in books:
                     books[filename] = {
                         'filename': filename,
-                        'pages': set(),  # Use a set for unique pages
+                        'pages': set(),
                         'snippets': {},
-                        'score': 0
+                        'score': 0,
+                        'search_type': search_type,
+                        'highlight_terms': highlight_terms
                     }
+                
                 books[filename]['pages'].add(r['page_num'])
-                books[filename]['snippets'][r['page_num']] = r.highlights("content")
+                
+                # Generate snippet
+                snippet_text = ""
+                if search_type == 'phrase':
+                    # Use our custom phrase highlighter for snippets
+                    snippet_text = highlight_phrases(r['content'], highlight_terms)
+                else:
+                    # Use Whoosh's default highlighter for term searches
+                    snippet_text = r.highlights("content")
+                
+                # Clean up whitespace for better tooltip display
+                cleaned_snippet = re.sub(r'\s+', ' ', snippet_text).strip()
+                books[filename]['snippets'][r['page_num']] = cleaned_snippet
+
                 books[filename]['score'] += 1
 
             # Convert to list and sort by score
