@@ -184,7 +184,7 @@
             </div>
 
             <div class="results-column">
-                <div id="results" class="space-y-4"></div>
+                <div id="results" class="space-y-2"></div>
                 
                 <div id="loading" class="hidden text-center py-4">
                     <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
@@ -305,44 +305,49 @@
 
         function createBookResult(result) {
             const div = document.createElement('div');
-            div.className = 'bg-white p-6 rounded-lg shadow-md';
+            div.className = 'bg-white px-6 py-3 rounded-lg shadow-md';
             
-            // Header with filename and score
-            const header = document.createElement('div');
-            header.className = 'flex justify-between items-start mb-2';
-            header.innerHTML = `
-                <h3 class="text-lg font-semibold text-gray-800">${result.filename}</h3>
-                <span class="text-sm text-gray-500">Matches: ${result.score} pages</span>
-            `;
+            // Main container for title and pages, using flex layout
+            const container = document.createElement('div');
+            container.className = 'flex items-baseline gap-x-4'; // Aligns title and first row of buttons
+
+            // Title element - set to not shrink, remove .pdf and reduce font size
+            const titleEl = document.createElement('h3');
+            // Added 'relative' and 'z-10' to ensure it's receptive to hover events
+            titleEl.className = 'flex-shrink-0 text-base font-semibold text-gray-800 relative z-10';
+            titleEl.textContent = result.filename.replace(/\.pdf$/i, ''); // Remove .pdf extension
+            titleEl.title = result.title; // Set the tooltip to the full title
             
-            // Page numbers with tooltips
+            // Page numbers container with tooltips
             const pagesDiv = document.createElement('div');
-            pagesDiv.className = 'mb-4 flex flex-wrap gap-1';
-            pagesDiv.innerHTML = `Pages: ${result.pages.map(page => `
+            pagesDiv.className = 'flex flex-wrap gap-1'; // This will handle button wrapping
+            pagesDiv.innerHTML = result.pages.map(page => `
                 <span class="page-number" data-page="${page}">
                     ${page}
                     <div class="page-tooltip">${result.snippets[page]}</div>
                 </span>
-            `).join('')}`;
+            `).join('');
             
             // Add click handlers for page numbers
             pagesDiv.addEventListener('click', (e) => {
-                if (e.target.classList.contains('page-number')) {
+                const pageElement = e.target.closest('.page-number');
+                if (pageElement) {
                     // Remove active state from all page numbers across all books
                     document.querySelectorAll('.page-number').forEach(el => 
                         el.classList.remove('active')
                     );
                     // Add active state to clicked page number
-                    e.target.classList.add('active');
+                    pageElement.classList.add('active');
                     
-                    // Load PDF page
-                    const page = e.target.dataset.page;
-                    loadPdfPage(result.filename, page);
+                    // Load PDF page with the full result object
+                    const page = pageElement.dataset.page;
+                    loadPdfPage(result.filename, page, result);
                 }
             });
             
-            div.appendChild(header);
-            div.appendChild(pagesDiv);
+            container.appendChild(titleEl);
+            container.appendChild(pagesDiv);
+            div.appendChild(container);
             
             return div;
         }

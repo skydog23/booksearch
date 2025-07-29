@@ -247,6 +247,7 @@ def search():
                 if filename not in books:
                     books[filename] = {
                         'filename': filename,
+                        'title': get_pdf_title(filename), # Add the full title here
                         'pages': set(),
                         'snippets': {},
                         'score': 0,
