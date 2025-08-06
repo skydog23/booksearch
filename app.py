@@ -217,86 +217,199 @@ def index_books():
 @app.route('/search')
 def search():
     query = request.args.get('q', '')
+    print(f"Search request received for query: {query}")
     if not query:
         return jsonify([])
 
-    ix = init_index()
-    with ix.searcher() as searcher:
-        query_parser = QueryParser("content", ix.schema, group=OrGroup)
-        
-        try:
-            # Determine search type and extract terms for highlighting
-            search_type = 'terms'
-            highlight_terms = []
+    def generate_search_results():
+        ix = init_index()
+        with ix.searcher() as searcher:
+            query_parser = QueryParser("content", ix.schema, group=OrGroup)
             
-            # Regex to find quoted phrases
-            phrases = re.findall(r'"([^"]*)"', query)
-            if phrases:
-                search_type = 'phrase'
-                highlight_terms = [p.strip() for p in phrases if p.strip()]
-
-            # Fallback to individual terms if no phrases found or query is not just phrases
-            if not highlight_terms:
-                highlight_terms = [
-                    term for term in query.replace('"', '').split() 
-                    if term.upper() not in ['AND', 'OR', 'NOT']
-                ]
-
-            q = query_parser.parse(query)
-            results = searcher.search(q, limit=None)
-            
-            # Group results by filename
-            books = {}
-            for r in results:
-                filename = r['filename']
-                if filename not in books:
-                    books[filename] = {
-                        'filename': filename,
-                        'title': get_pdf_title(filename),
-                        'pages': set(),
-                        'snippets': {},
-                        'score': 0, # This is the page count
-                        'match_count': 0, # This will be the total match count
-                        'search_type': search_type,
-                        'highlight_terms': highlight_terms
-                    }
+            try:
+                # Determine search type and extract terms for highlighting
+                search_type = 'terms'
+                highlight_terms = []
                 
-                books[filename]['pages'].add(r['page_num'])
+                # Regex to find quoted phrases
+                phrases = re.findall(r'"([^"]*)"', query)
+                if phrases:
+                    search_type = 'phrase'
+                    highlight_terms = [p.strip() for p in phrases if p.strip()]
+                    print(f"Found phrases: {highlight_terms}")
+
+                # Fallback to individual terms if no phrases found or query is not just phrases
+                if not highlight_terms:
+                    highlight_terms = [
+                        term for term in query.replace('"', '').split() 
+                        if term.upper() not in ['AND', 'OR', 'NOT']
+                    ]
+                    print(f"Using terms: {highlight_terms}")
+
+                try:
+                    # Normalize the query while preserving operators
+                    operators = ['AND', 'OR', 'NOT']
+                    # Replace operators with temporary markers
+                    preserved_query = query
+                    for i, op in enumerate(operators):
+                        preserved_query = preserved_query.replace(op, f'__OP{i}__')
+                    
+                    # Normalize the query
+                    normalized_query = preserved_query.lower()
+                    
+                    # Restore operators
+                    for i, op in enumerate(operators):
+                        normalized_query = normalized_query.replace(f'__op{i}__', op)
+                    
+                    q = query_parser.parse(normalized_query)
+                    print(f"Parsed query: {q}")
+                    results = searcher.search(q, limit=None)
+                    print(f"Found {len(results)} initial results")
+                    
+                    # Debug: Print first few results
+                    for i, r in enumerate(results[:5]):
+                        print(f"Result {i + 1}:")
+                        print(f"  Filename: {r['filename']}")
+                        print(f"  Page: {r['page_num']}")
+                        print(f"  Score: {r.score}")
+                        # Print a snippet of the content around the match
+                        content = r['content']
+                        # Try both original and lowercase for matching
+                        pos = -1
+                        for test_query in [query, query.lower()]:
+                            pos = content.lower().find(test_query.lower())
+                            if pos >= 0:
+                                break
+                        
+                        if pos >= 0:
+                            start = max(0, pos - 50)
+                            end = min(len(content), pos + len(query) + 50)
+                            context = content[start:end]
+                            print(f"  Context: ...{context}...")
+                        else:
+                            print("  No direct match found in content")
+                        
+                except Exception as search_error:
+                    print(f"Search execution error: {str(search_error)}")
+                    yield json.dumps({
+                        "status": "complete",
+                        "results": [],
+                        "total_books": 0,
+                        "total_pages": 0,
+                        "error": f"Search failed: {str(search_error)}"
+                    }) + "\n"
+                    return
                 
-                # Count matches on the current page
-                page_content_lower = r['content'].lower()
-                page_match_count = 0
-                for term in highlight_terms:
-                    page_match_count += page_content_lower.count(term.lower())
-                books[filename]['match_count'] += page_match_count
-
-                # Generate snippet
-                snippet_text = ""
-                if search_type == 'phrase':
-                    # Use our custom phrase highlighter for snippets
-                    snippet_text = highlight_phrases(r['content'], highlight_terms)
-                else:
-                    # Use Whoosh's default highlighter for term searches
-                    snippet_text = r.highlights("content")
+                # Send initial progress update
+                initial_update = {
+                    "status": "searching",
+                    "message": "Starting search...",
+                    "total_books": 0,
+                    "total_pages": 0
+                }
+                print(f"Sending initial update: {initial_update}")
+                yield json.dumps(initial_update) + "\n"
                 
-                # Clean up whitespace for better tooltip display
-                cleaned_snippet = re.sub(r'\s+', ' ', snippet_text).strip()
-                books[filename]['snippets'][r['page_num']] = cleaned_snippet
+                # Group results by filename
+                books = {}
+                processed_books = 0
+                total_pages = 0
+                
+                for r in results:
+                    try:
+                        filename = r['filename']
+                        if filename not in books:
+                            books[filename] = {
+                                'filename': filename,
+                                'title': get_pdf_title(filename),
+                                'pages': set(),
+                                'snippets': {},
+                                'score': 0, # This is the page count
+                                'match_count': 0, # This will be the total match count
+                                'search_type': search_type,
+                                'highlight_terms': highlight_terms
+                            }
+                            processed_books += 1
+                            # Send progress update for each new book
+                            progress_update = {
+                                "status": "searching",
+                                "message": f"Processing book {processed_books}...",
+                                "current_book": processed_books,
+                                "total_pages": total_pages
+                            }
+                            print(f"Processing book {filename}")
+                            yield json.dumps(progress_update) + "\n"
+                        
+                        books[filename]['pages'].add(r['page_num'])
+                        total_pages += 1
+                        
+                        # Count matches on the current page
+                        page_content_lower = r['content'].lower()
+                        page_match_count = 0
+                        for term in highlight_terms:
+                            page_match_count += page_content_lower.count(term.lower())
+                        books[filename]['match_count'] += page_match_count
 
-                books[filename]['score'] += 1 # Increment page count
+                        # Generate snippet
+                        snippet_text = ""
+                        if search_type == 'phrase':
+                            # Use our custom phrase highlighter for snippets
+                            snippet_text = highlight_phrases(r['content'], highlight_terms)
+                        else:
+                            # Use Whoosh's default highlighter for term searches
+                            snippet_text = r.highlights("content")
+                        
+                        # Clean up whitespace for better tooltip display
+                        cleaned_snippet = re.sub(r'\s+', ' ', snippet_text).strip()
+                        books[filename]['snippets'][r['page_num']] = cleaned_snippet
 
-            # Convert to list and sort by score
-            hits = list(books.values())
-            hits.sort(key=lambda x: x['score'], reverse=True)
-            
-            # Convert page sets to sorted lists
-            for hit in hits:
-                hit['pages'] = sorted(list(hit['pages']))
-            
-            return jsonify(hits)
-        except Exception as e:
-            print(f"Search error: {str(e)}")
-            return jsonify({"error": str(e)}), 400
+                        books[filename]['score'] += 1 # Increment page count
+                    except Exception as result_error:
+                        print(f"Error processing result: {str(result_error)}")
+                        continue
+
+                # Convert to list and sort by score
+                hits = list(books.values())
+                hits.sort(key=lambda x: x['score'], reverse=True)
+                
+                # Convert page sets to sorted lists
+                for hit in hits:
+                    hit['pages'] = sorted(list(hit['pages']))
+                
+                # Send results in batches of 10 books
+                batch_size = 10
+                total_hits = len(hits)
+                
+                # Send initial completion status
+                yield json.dumps({
+                    "status": "complete",
+                    "total_books": total_hits,
+                    "total_pages": total_pages,
+                    "batch_count": (total_hits + batch_size - 1) // batch_size
+                }) + "\n"
+
+                # Send results in batches
+                for i in range(0, total_hits, batch_size):
+                    batch = hits[i:i + batch_size]
+                    yield json.dumps({
+                        "status": "batch",
+                        "batch_number": i // batch_size + 1,
+                        "results": batch
+                    }) + "\n"
+
+                print(f"Search complete. Sent {total_hits} books in {(total_hits + batch_size - 1) // batch_size} batches")
+
+            except Exception as e:
+                print(f"Unexpected search error: {str(e)}")
+                yield json.dumps({
+                    "status": "complete",
+                    "results": [],
+                    "total_books": 0,
+                    "total_pages": 0,
+                    "error": str(e)
+                }) + "\n"
+
+    return Response(generate_search_results(), mimetype='text/event-stream')
 
 if __name__ == '__main__':
     app.run(debug=True, port=8087) 

@@ -121,7 +121,7 @@
         }
         .search-help {
             position: absolute;
-            right: 0.75rem;  /* 12px from right edge */
+            right: 2.5rem;  /* Increased to make room for progress circle */
             top: 50%;
             transform: translateY(-50%);
             z-index: 10;
@@ -149,6 +149,50 @@
             position: relative;
             flex: 1;
         }
+        .search-progress {
+            position: absolute;
+            right: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            z-index: 20;
+            display: none;
+        }
+        .search-progress circle {
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.2s ease;
+        }
+        .search-progress .progress-bg {
+            stroke: #e2e8f0;
+        }
+        .search-progress .progress-bar {
+            stroke: #4f46e5;
+            transform: rotate(-90deg);
+            transform-origin: center;
+            transition: stroke-dashoffset 0.2s ease;
+        }
+        .search-progress-tooltip {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 0.5rem;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            font-size: 0.75rem;
+            color: #4a5568;
+            white-space: nowrap;
+            display: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 30;
+        }
+        .search-progress:hover .search-progress-tooltip {
+            display: block;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -162,9 +206,16 @@
                     <div class="search-input-wrapper">
                         <input type="text" 
                                id="searchInput" 
-                               class="w-full p-3 pr-10 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                               placeholder="Enter your search query...">
-                        <div id="searchStatus" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-sm text-indigo-600"></div>
+                               class="w-full p-3 pr-16 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="Enter search query and press Enter...">
+                        <!-- Search Progress Circle -->
+                        <div class="search-progress" id="searchProgress">
+                            <svg width="20" height="20" viewBox="0 0 20 20">
+                                <circle class="progress-bg" cx="10" cy="10" r="8"/>
+                                <circle class="progress-bar" cx="10" cy="10" r="8"/>
+                            </svg>
+                            <div class="search-progress-tooltip" id="searchProgressText"></div>
+                        </div>
                         <!-- Search Help Button -->
                         <div class="search-help">
                             <button class="text-gray-400 hover:text-gray-600" title="Search Help">
@@ -184,6 +235,9 @@
                                 </ul>
                                 <div class="mt-2 text-sm text-gray-600">
                                     Combine patterns: <code class="bg-gray-100 px-1">"exact phrase" AND word* NOT other</code>
+                                </div>
+                                <div class="mt-2 pt-2 border-t border-gray-200 text-sm text-gray-600">
+                                    Press Enter to start search
                                 </div>
                             </div>
                         </div>
@@ -230,18 +284,39 @@
     </div>
 
     <script>
-        let searchTimeout;
         let currentSearch = null;
         let currentSearchTerm = '';  // Store current search term
         let searchController = null;  // Add AbortController for search requests
         let currentPdfFile = null;  // Track current PDF file
         const searchInput = document.getElementById('searchInput');
         const resultsDiv = document.getElementById('results');
-        const searchStatus = document.getElementById('searchStatus');
-        const searchInfo = document.getElementById('searchInfo');
+        const searchProgress = document.getElementById('searchProgress');
+        const searchProgressText = document.getElementById('searchProgressText');
+        const progressCircle = searchProgress.querySelector('.progress-bar');
         const loadingDiv = document.getElementById('loading');
         const pdfViewer = document.getElementById('pdf-viewer');
         const pdfTitle = document.getElementById('pdf-title');
+        const searchInfo = document.getElementById('searchInfo');  // Add missing reference
+
+        // Calculate the circumference of the progress circle
+        const radius = 8; // matches the r attribute in SVG
+        const circumference = 2 * Math.PI * radius;
+        progressCircle.style.strokeDasharray = circumference;
+        progressCircle.style.strokeDashoffset = circumference;
+
+        // Function to update progress circle
+        function updateProgress(percent) {
+            const offset = circumference - (percent / 100 * circumference);
+            progressCircle.style.strokeDashoffset = offset;
+        }
+
+        // Only trigger search on Enter key
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault(); // Prevent any form submission
+                performSearch();
+            }
+        });
 
         async function updatePdfTitle(filename) {
             try {
@@ -259,24 +334,38 @@
             filename = filename.replace(/\.pdf$/, '');
             
             // Clean up search term for highlighting by removing logical operators
-            let highlightTerm = currentSearchTerm;
+            let highlightTerms = [];
             if (currentSearchTerm) {
-                highlightTerm = currentSearchTerm
+                // First extract quoted phrases
+                const phrases = currentSearchTerm.match(/"([^"]*)"/g) || [];
+                phrases.forEach(phrase => {
+                    phrase = phrase.replace(/"/g, '').trim();
+                    if (phrase.length > 2) {
+                        highlightTerms.push(phrase);
+                    }
+                });
+
+                // Then handle individual terms
+                const remainingText = currentSearchTerm
+                    .replace(/"[^"]*"/g, '') // Remove quoted phrases
                     .replace(/ AND /g, ' ')
                     .replace(/ OR /g, ' ')
                     .replace(/ NOT /g, ' ')
-                    .replace(/"/g, '')  // Remove quotes
-                    .trim()
-                    .split(/\s+/)  // Split on whitespace
-                    .filter(term => term.length > 2)  // Only highlight terms longer than 2 chars
-                    .join(' ');  // Join back with spaces
+                    .trim();
+
+                const individualTerms = remainingText.split(/\s+/);
+                individualTerms.forEach(term => {
+                    if (term.length > 2 && !['and', 'or', 'not'].includes(term.toLowerCase())) {
+                        highlightTerms.push(term);
+                    }
+                });
             }
 
             // If this is a different PDF, load it completely
             if (currentPdfFile !== filename) {
                 currentPdfFile = filename;
                 const pdfUrl = `/pdf/${encodeURIComponent(filename)}/${page}`;
-                const searchParam = highlightTerm ? `&search=${encodeURIComponent(highlightTerm)}` : '';
+                const searchParam = highlightTerms.length ? `&search=${encodeURIComponent(highlightTerms.join('|'))}` : '';
                 const viewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfUrl)}#page=${page}${searchParam}`;
                 pdfViewer.src = viewerUrl;
                 
@@ -287,13 +376,16 @@
                 pdfViewer.onload = function() {
                     // Wait a bit for PDF.js to initialize
                     setTimeout(() => {
-                        if (highlightTerm) {
+                        if (highlightTerms.length) {
                             // Send search command to PDF viewer
                             pdfViewer.contentWindow.postMessage({
                                 type: 'find',
-                                query: highlightTerm,
+                                query: highlightTerms.join('|'),
+                                phraseSearch: false,
                                 highlightAll: true,
                                 caseSensitive: false,
+                                findPrevious: false,
+                                matchDiacritics: true
                             }, '*');
                         }
                     }, 1000);
@@ -313,22 +405,20 @@
 
                 // Update highlighting if needed
                 setTimeout(() => {
-                    if (highlightTerm) {
+                    if (highlightTerms.length) {
                         pdfViewer.contentWindow.postMessage({
                             type: 'find',
-                            query: highlightTerm,
+                            query: highlightTerms.join('|'),
+                            phraseSearch: false,
                             highlightAll: true,
                             caseSensitive: false,
+                            findPrevious: false,
+                            matchDiacritics: true
                         }, '*');
                     }
                 }, 100);
             }
         }
-
-        searchInput.addEventListener('input', function() {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(performSearch, 300);
-        });
 
         function createBookResult(result) {
             const div = document.createElement('div');
@@ -394,10 +484,11 @@
         async function performSearch() {
             const query = searchInput.value.trim();
             currentSearchTerm = query;  // Store current search term
+            console.log('Starting search for query:', query);
             
             if (!query) {
                 resultsDiv.innerHTML = '';
-                searchStatus.classList.add('hidden');
+                searchProgress.style.display = 'none';
                 searchInfo.classList.add('hidden');
                 return;
             }
@@ -408,65 +499,139 @@
             }
             searchController = new AbortController();
 
-            // Show search in progress
-            searchInput.classList.add('search-in-progress');
-            searchStatus.textContent = 'Searching...';
-            searchStatus.classList.remove('hidden');
-            searchStatus.classList.add('search-pulse');
+            // Show search progress
+            searchProgress.style.display = 'block';
+            updateProgress(0);
+            searchProgressText.textContent = 'Starting search...';
+            searchInfo.classList.add('hidden');
+            resultsDiv.innerHTML = '';
             
             const startTime = performance.now();
+            let results = [];
 
             try {
+                console.log('Fetching search results...');
                 const response = await fetch(`/search?q=${encodeURIComponent(query)}`, {
                     signal: searchController.signal
                 });
-                const results = await response.json();
-                
-                // Only update UI if this is still the current search
-                if (query === searchInput.value.trim()) {
-                    const endTime = performance.now();
-                    const searchTime = ((endTime - startTime) / 1000).toFixed(2);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                console.log('Got response:', response.status, response.statusText);
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const {value, done} = await reader.read();
+                    if (done) {
+                        console.log('Stream complete');
+                        break;
+                    }
                     
-                    resultsDiv.innerHTML = '';
-                    if (results.length > 0) {
-                        const totalPages = results.reduce((sum, r) => sum + r.pages.length, 0);
-                        searchInfo.innerHTML = `Found matches on ${totalPages} page${totalPages !== 1 ? 's' : ''} ` +
-                                             `across ${results.length} book${results.length !== 1 ? 's' : ''} ` +
-                                             `in ${searchTime} seconds`;
-                        searchInfo.classList.remove('hidden');
+                    const lines = decoder.decode(value).split('\n');
+                    console.log('Received chunk with', lines.length, 'lines');
+                    
+                    for (const line of lines) {
+                        if (!line.trim()) {
+                            console.log('Skipping empty line');
+                            continue;
+                        }
                         
-                        // Create result elements
-                        results.forEach((result, index) => {
-                            const resultElement = createBookResult(result);
-                            resultsDiv.appendChild(resultElement);
+                        try {
+                            console.log('Raw line:', line);
+                            const update = JSON.parse(line);
+                            console.log('Parsed update:', update);
                             
-                            // Only set active and load PDF for first page of first book
-                            if (index === 0 && result.pages.length > 0) {
-                                const firstPageBtn = resultElement.querySelector(`[data-page="${result.pages[0]}"]`);
-                                if (firstPageBtn) {
-                                    firstPageBtn.classList.add('active');
-                                    loadPdfPage(result.filename, result.pages[0]);
+                            if (update.error) {
+                                console.error('Server reported error:', update.error);
+                                resultsDiv.innerHTML = `<div class="text-red-500">Search error: ${update.error}</div>`;
+                                searchInfo.classList.add('hidden');
+                                throw new Error(update.error);
+                            }
+                            
+                            if (update.status === 'searching') {
+                                console.log('Search in progress:', update);
+                                searchProgressText.textContent = update.message || `${update.total_pages} pages found`;
+                                if (update.current_book) {
+                                    // Assuming we process about 100 books max, adjust the progress
+                                    const progress = Math.min((update.current_book / 100) * 100, 90);
+                                    updateProgress(progress);
                                 }
                             }
-                        });
-                    } else {
-                        searchInfo.innerHTML = `No results found (${searchTime} seconds)`;
-                        searchInfo.classList.remove('hidden');
+                            
+                            if (update.status === 'complete') {
+                                console.log('Search complete. Full update:', update);
+                                updateProgress(90); // Leave room for processing batches
+                                const endTime = performance.now();
+                                const searchTime = ((endTime - startTime) / 1000).toFixed(2);
+                                
+                                resultsDiv.innerHTML = '';
+                                
+                                if (update.total_books > 0) {
+                                    console.log(`Expecting ${update.batch_count} batches of results`);
+                                    searchInfo.innerHTML = `Found matches on ${update.total_pages} page${update.total_pages !== 1 ? 's' : ''} ` +
+                                                         `across ${update.total_books} book${update.total_books !== 1 ? 's' : ''} ` +
+                                                         `in ${searchTime} seconds`;
+                                    searchInfo.classList.remove('hidden');
+                                } else {
+                                    console.log('No results found');
+                                    searchInfo.innerHTML = `No results found (${searchTime} seconds)`;
+                                    searchInfo.classList.remove('hidden');
+                                    resultsDiv.innerHTML = '<div class="text-gray-500 text-center py-4">No matching documents found</div>';
+                                }
+                            }
+
+                            if (update.status === 'batch') {
+                                console.log(`Processing batch ${update.batch_number} of results`);
+                                const results = update.results;
+                                
+                                // Update progress based on batch number
+                                const progressIncrement = 10 / update.batch_number; // Save 10% for final processing
+                                updateProgress(90 + progressIncrement);
+
+                                // Create result elements
+                                results.forEach((result, index) => {
+                                    console.log(`Creating result element for book:`, result.filename);
+                                    const resultElement = createBookResult(result);
+                                    resultsDiv.appendChild(resultElement);
+                                    
+                                    // Only set active and load PDF for first result of first batch
+                                    if (update.batch_number === 1 && index === 0 && result.pages.length > 0) {
+                                        const firstPageBtn = resultElement.querySelector(`[data-page="${result.pages[0]}"]`);
+                                        if (firstPageBtn) {
+                                            firstPageBtn.classList.add('active');
+                                            loadPdfPage(result.filename, result.pages[0]);
+                                        }
+                                    }
+                                });
+
+                                // If this is the last batch, update to 100%
+                                if (progressIncrement >= 10) {
+                                    updateProgress(100);
+                                }
+                            }
+                        } catch (parseError) {
+                            console.error('Error parsing update:', parseError, 'Raw line:', line);
+                        }
                     }
                 }
             } catch (error) {
                 if (error.name === 'AbortError') {
-                    // Search was canceled, do nothing
+                    console.log('Search aborted');
                     return;
                 }
                 console.error('Search error:', error);
                 resultsDiv.innerHTML = '<div class="text-red-500">Search failed. Please try again.</div>';
+                searchInfo.classList.add('hidden');
             } finally {
                 // Hide search progress only if this is still the current search
                 if (query === searchInput.value.trim()) {
-                    searchInput.classList.remove('search-in-progress');
-                    searchStatus.classList.add('hidden');
-                    searchStatus.classList.remove('search-pulse');
+                    // Hide progress circle after a short delay
+                    setTimeout(() => {
+                        searchProgress.style.display = 'none';
+                    }, 1000);
                 }
             }
         }
