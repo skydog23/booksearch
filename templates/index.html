@@ -335,9 +335,12 @@
             
             // Clean up search term for highlighting by removing logical operators
             let highlightTerms = [];
+            console.log('Original search term:', currentSearchTerm);
+            
             if (currentSearchTerm) {
                 // First extract quoted phrases
                 const phrases = currentSearchTerm.match(/"([^"]*)"/g) || [];
+                console.log('Found quoted phrases:', phrases);
                 phrases.forEach(phrase => {
                     phrase = phrase.replace(/"/g, '').trim();
                     if (phrase.length > 2) {
@@ -352,21 +355,26 @@
                     .replace(/ OR /g, ' ')
                     .replace(/ NOT /g, ' ')
                     .trim();
+                console.log('Remaining text after removing operators:', remainingText);
 
                 const individualTerms = remainingText.split(/\s+/);
+                console.log('Individual terms:', individualTerms);
                 individualTerms.forEach(term => {
                     if (term.length > 2 && !['and', 'or', 'not'].includes(term.toLowerCase())) {
                         highlightTerms.push(term);
                     }
                 });
             }
+            console.log('Final highlight terms:', highlightTerms);
 
             // If this is a different PDF, load it completely
             if (currentPdfFile !== filename) {
                 currentPdfFile = filename;
                 const pdfUrl = `/pdf/${encodeURIComponent(filename)}/${page}`;
                 const searchParam = highlightTerms.length ? `&search=${encodeURIComponent(highlightTerms.join('|'))}` : '';
+                console.log('Search parameter for URL:', searchParam);
                 const viewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfUrl)}#page=${page}${searchParam}`;
+                console.log('Full viewer URL:', viewerUrl);
                 pdfViewer.src = viewerUrl;
                 
                 // Update the title
@@ -377,8 +385,7 @@
                     // Wait a bit for PDF.js to initialize
                     setTimeout(() => {
                         if (highlightTerms.length) {
-                            // Send search command to PDF viewer
-                            pdfViewer.contentWindow.postMessage({
+                            const findMessage = {
                                 type: 'find',
                                 query: highlightTerms.join('|'),
                                 phraseSearch: false,
@@ -386,7 +393,9 @@
                                 caseSensitive: false,
                                 findPrevious: false,
                                 matchDiacritics: true
-                            }, '*');
+                            };
+                            console.log('Sending find message to PDF viewer:', findMessage);
+                            pdfViewer.contentWindow.postMessage(findMessage, '*');
                         }
                     }, 1000);
                 };
@@ -406,7 +415,7 @@
                 // Update highlighting if needed
                 setTimeout(() => {
                     if (highlightTerms.length) {
-                        pdfViewer.contentWindow.postMessage({
+                        const findMessage = {
                             type: 'find',
                             query: highlightTerms.join('|'),
                             phraseSearch: false,
@@ -414,7 +423,9 @@
                             caseSensitive: false,
                             findPrevious: false,
                             matchDiacritics: true
-                        }, '*');
+                        };
+                        console.log('Sending find message to PDF viewer (same file):', findMessage);
+                        pdfViewer.contentWindow.postMessage(findMessage, '*');
                     }
                 }, 100);
             }

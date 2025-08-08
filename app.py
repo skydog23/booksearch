@@ -214,10 +214,13 @@ def index_books():
 
     return Response(generate_updates(), mimetype='text/event-stream')
 
+# Add at the top of the file, after the imports
+debugSelectBooks = False  # When True, only search GA_004.pdf
+
 @app.route('/search')
 def search():
     query = request.args.get('q', '')
-    print(f"Search request received for query: {query}")
+    print(f"\nSearch request received for query: {query}")
     if not query:
         return jsonify([])
 
@@ -246,59 +249,10 @@ def search():
                     ]
                     print(f"Using terms: {highlight_terms}")
 
-                try:
-                    # Normalize the query while preserving operators
-                    operators = ['AND', 'OR', 'NOT']
-                    # Replace operators with temporary markers
-                    preserved_query = query
-                    for i, op in enumerate(operators):
-                        preserved_query = preserved_query.replace(op, f'__OP{i}__')
-                    
-                    # Normalize the query
-                    normalized_query = preserved_query.lower()
-                    
-                    # Restore operators
-                    for i, op in enumerate(operators):
-                        normalized_query = normalized_query.replace(f'__op{i}__', op)
-                    
-                    q = query_parser.parse(normalized_query)
-                    print(f"Parsed query: {q}")
-                    results = searcher.search(q, limit=None)
-                    print(f"Found {len(results)} initial results")
-                    
-                    # Debug: Print first few results
-                    for i, r in enumerate(results[:5]):
-                        print(f"Result {i + 1}:")
-                        print(f"  Filename: {r['filename']}")
-                        print(f"  Page: {r['page_num']}")
-                        print(f"  Score: {r.score}")
-                        # Print a snippet of the content around the match
-                        content = r['content']
-                        # Try both original and lowercase for matching
-                        pos = -1
-                        for test_query in [query, query.lower()]:
-                            pos = content.lower().find(test_query.lower())
-                            if pos >= 0:
-                                break
-                        
-                        if pos >= 0:
-                            start = max(0, pos - 50)
-                            end = min(len(content), pos + len(query) + 50)
-                            context = content[start:end]
-                            print(f"  Context: ...{context}...")
-                        else:
-                            print("  No direct match found in content")
-                        
-                except Exception as search_error:
-                    print(f"Search execution error: {str(search_error)}")
-                    yield json.dumps({
-                        "status": "complete",
-                        "results": [],
-                        "total_books": 0,
-                        "total_pages": 0,
-                        "error": f"Search failed: {str(search_error)}"
-                    }) + "\n"
-                    return
+                q = query_parser.parse(query)
+                print(f"Parsed query: {q}")
+                results = searcher.search(q, limit=None)
+                print(f"Found {len(results)} initial results")
                 
                 # Send initial progress update
                 initial_update = {
@@ -318,6 +272,11 @@ def search():
                 for r in results:
                     try:
                         filename = r['filename']
+                        
+                        # If debug mode is on, only process GA_004.pdf
+                        if debugSelectBooks and filename != 'GA_004.pdf':
+                            continue
+                            
                         if filename not in books:
                             books[filename] = {
                                 'filename': filename,

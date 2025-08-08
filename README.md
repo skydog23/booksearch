@@ -23,6 +23,33 @@ A web application for searching and viewing PDF books. Features include:
 
 ## Quick Start
 
+### For Windows Users
+
+1. Clone the repository:
+```batch
+git clone [repository-url]
+cd booksearch
+```
+
+2. Run the Windows setup script:
+```batch
+setup.bat
+```
+
+3. Start the application:
+```batch
+start.bat
+```
+
+The setup script will automatically:
+- Create a Python virtual environment
+- Install all required dependencies
+- Download and set up the PDF.js viewer
+- Create necessary directories
+- Build the search index from your PDF files
+
+### For macOS/Linux Users
+
 1. Clone the repository:
 ```bash
 git clone [repository-url]
