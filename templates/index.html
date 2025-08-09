@@ -371,7 +371,7 @@
             if (currentPdfFile !== filename) {
                 currentPdfFile = filename;
                 const pdfUrl = `/pdf/${encodeURIComponent(filename)}/${page}`;
-                const searchParam = highlightTerms.length ? `&search=${encodeURIComponent(highlightTerms.join('|'))}` : '';
+                const searchParam = highlightTerms.length ? `&search=${encodeURIComponent(highlightTerms.join(' '))}` : '';
                 console.log('Search parameter for URL:', searchParam);
                 const viewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfUrl)}#page=${page}${searchParam}`;
                 console.log('Full viewer URL:', viewerUrl);
@@ -387,8 +387,8 @@
                         if (highlightTerms.length) {
                             const findMessage = {
                                 type: 'find',
-                                query: highlightTerms.join('|'),
-                                phraseSearch: false,
+                                query: highlightTerms.join(' ') || '',
+                                phraseSearch: true,
                                 highlightAll: true,
                                 caseSensitive: false,
                                 findPrevious: false,
@@ -417,8 +417,8 @@
                     if (highlightTerms.length) {
                         const findMessage = {
                             type: 'find',
-                            query: highlightTerms.join('|'),
-                            phraseSearch: false,
+                            query: highlightTerms.join(' ') || '',
+                            phraseSearch: true,
                             highlightAll: true,
                             caseSensitive: false,
                             findPrevious: false,
