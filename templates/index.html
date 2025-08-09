@@ -342,7 +342,7 @@
                 const phrases = currentSearchTerm.match(/"([^"]*)"/g) || [];
                 console.log('Found quoted phrases:', phrases);
                 phrases.forEach(phrase => {
-                    phrase = phrase.replace(/"/g, '').trim();
+                    phrase = phrase.replace(/\\"/g, '').replace(/"/g, '').trim();
                     if (phrase.length > 2) {
                         highlightTerms.push(phrase);
                     }
@@ -350,7 +350,7 @@
 
                 // Then handle individual terms
                 const remainingText = currentSearchTerm
-                    .replace(/"[^"]*"/g, '') // Remove quoted phrases
+                    .replace(/\"[^\"]*\"/g, '') // Remove quoted phrases
                     .replace(/ AND /g, ' ')
                     .replace(/ OR /g, ' ')
                     .replace(/ NOT /g, ' ')
