@@ -444,10 +444,23 @@
             const titleContainer = document.createElement('div');
             titleContainer.className = 'title-container flex-shrink-0';
 
-            // Title element (the visible filename)
-            const titleEl = document.createElement('h3');
-            titleEl.className = 'text-base font-semibold text-gray-800';
-            titleEl.textContent = result.filename.replace(/\.pdf$/i, '');
+            // Compute GA wiki URL if possible
+            const baseTitle = result.filename.replace(/\.pdf$/i, '');
+            const gaMatch = baseTitle.match(/GA[_\s-]?(\d{1,4})/i);
+            const wikiUrl = gaMatch ? `https://anthrowiki.at/GA_${gaMatch[1].padStart(3, '0')}` : null;
+
+            // Title button (styled like the original title)
+            const titleEl = document.createElement('button');
+            titleEl.type = 'button';
+            titleEl.className = 'text-base font-semibold text-gray-800 bg-transparent p-0 m-0 focus:outline-none';
+            titleEl.textContent = baseTitle;
+            if (wikiUrl) {
+                titleEl.title = `Open ${wikiUrl}`;
+                titleEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    window.open(wikiUrl, '_blank', 'noopener');
+                });
+            }
             
             // The new custom tooltip element
             const tooltipEl = document.createElement('div');
