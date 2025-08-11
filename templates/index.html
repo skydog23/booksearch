@@ -371,6 +371,13 @@
             if (currentPdfFile !== filename) {
                 currentPdfFile = filename;
                 const pdfUrl = `/pdf/${encodeURIComponent(filename)}/${page}`;
+                /*
+                 * Highlight integration note:
+                 * - URL hash &search= sets the viewer's initial find on load (useful for deep links / reloads).
+                 * - postMessage 'find' (see below) updates highlights after the viewer is ready (more controllable).
+                 * - Using both usually works, but can occasionally race on some PDFs/browsers.
+                 *   To use postMessage-only, set searchParam to '' and rely solely on the find message below.
+                 */
                 const searchParam = highlightTerms.length ? `&search=${encodeURIComponent(highlightTerms.join(' '))}` : '';
                 console.log('Search parameter for URL:', searchParam);
                 const viewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfUrl)}#page=${page}${searchParam}`;
@@ -385,10 +392,13 @@
                     // Wait a bit for PDF.js to initialize
                     setTimeout(() => {
                         if (highlightTerms.length) {
+                            // postMessage-based highlighting.
+                            // If switching to postMessage-only, consider clearing first:
+                            // pdfViewer.contentWindow.postMessage({ type: 'find', query: '', highlightAll: false, findPrevious: false }, '*');
                             const findMessage = {
                                 type: 'find',
                                 query: highlightTerms.join(' ') || '',
-                                phraseSearch: true,
+                                phraseSearch: true, // With space-joined terms, this highlights all words in practice
                                 highlightAll: true,
                                 caseSensitive: false,
                                 findPrevious: false,
@@ -415,6 +425,8 @@
                 // Update highlighting if needed
                 setTimeout(() => {
                     if (highlightTerms.length) {
+                        // postMessage-based highlighting.
+                        // To avoid stale highlights when switching queries, you can clear first (see note above).
                         const findMessage = {
                             type: 'find',
                             query: highlightTerms.join(' ') || '',
