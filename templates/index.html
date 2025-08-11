@@ -458,13 +458,13 @@
 
             // Compute GA wiki URL if possible
             const baseTitle = result.filename.replace(/\.pdf$/i, '');
-            const gaMatch = baseTitle.match(/GA[_\s-]?(\d{1,4})/i);
-            const wikiUrl = gaMatch ? `https://anthrowiki.at/GA_${gaMatch[1].padStart(3, '0')}` : null;
+            const gaMatch = baseTitle.match(/GA[_\s-]?(\d{1,4}[A-Za-z]?)/i);
+            const wikiUrl = gaMatch ? `https://anthrowiki.at/${baseTitle}` : null;
 
             // Title button (styled like the original title)
             const titleEl = document.createElement('button');
             titleEl.type = 'button';
-            titleEl.className = 'text-base font-semibold text-gray-800 bg-transparent p-0 m-0 focus:outline-none';
+            titleEl.className = 'text-base font-semibold text-blue-600 hover:text-blue-800 hover:underline underline-offset-2 transition-colors duration-150 bg-transparent p-0 m-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 rounded cursor-pointer';
             titleEl.textContent = baseTitle;
             if (wikiUrl) {
                 titleEl.title = `Open ${wikiUrl}`;
