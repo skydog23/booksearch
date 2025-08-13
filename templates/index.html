@@ -239,6 +239,9 @@
                                 <div class="mt-2 pt-2 border-t border-gray-200 text-sm text-gray-600">
                                     Press Enter to start search
                                 </div>
+                                <div class="mt-2 text-sm text-gray-600">
+                                    Tip: <code class="bg-gray-100 px-1">@GA_XXX</code> opens the book's wiki page (e.g., <code class="bg-gray-100 px-1">@GA_104a</code>)
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -521,6 +524,16 @@
             const query = searchInput.value.trim();
             currentSearchTerm = query;  // Store current search term
             console.log('Starting search for query:', query);
+
+            // Command: open GA wiki page when user enters @GA_XXX (accepts GA_104a, GA-104a, GA 104a, with optional .pdf)
+            const gaCmdMatch = query.match(/^@GA[_\s-]?(\d{1,4}[A-Za-z]?)(?:\.pdf)?$/i);
+            if (gaCmdMatch) {
+                const id = gaCmdMatch[1];
+                const normalized = `GA_${id}`; // Build canonical slug for wiki
+                const url = `https://anthrowiki.at/${normalized}`;
+                window.open(url, '_blank', 'noopener');
+                return; // Skip normal search
+            }
             
             if (!query) {
                 resultsDiv.innerHTML = '';
