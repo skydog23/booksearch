@@ -154,6 +154,31 @@ def get_title(filename):
     title = get_pdf_title(filename)
     return jsonify({"title": title})
 
+@app.route('/pdf/title_for_search/<path:filename>')
+def get_title_for_search(filename):
+    """Get the title of a PDF file for search purposes"""
+    try:
+        if not filename.lower().endswith('.pdf'):
+            filename = filename + '.pdf'
+        
+        # Check if file exists
+        pdf_path = Path('data') / filename
+        if not pdf_path.exists():
+            return jsonify({"error": f"PDF file '{filename}' not found"}), 404
+            
+        title = get_pdf_title(filename)
+        
+        # Strip off any "GA ..." prefix from the title string for search purposes
+        # This removes patterns like "GA 261 - ", "GA_082 - ", etc.
+        cleaned_title = re.sub(r'^\s*GA[_\s-]*\d+[A-Za-z]*\s*-\s*', '', title).strip()
+        
+        # If stripping the prefix results in an empty string, use the original title
+        search_title = cleaned_title if cleaned_title else title
+        
+        return jsonify({"title": search_title, "filename": filename})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/pdfjs/<path:filename>')
 def serve_pdfjs(filename):
     """Serve PDF.js viewer files"""

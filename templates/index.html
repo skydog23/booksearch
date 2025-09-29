@@ -240,7 +240,7 @@
                                     Press Enter to start search
                                 </div>
                                 <div class="mt-2 text-sm text-gray-600">
-                                    Tip: <code class="bg-gray-100 px-1">@GA_XXX</code> opens the book's wiki page (e.g., <code class="bg-gray-100 px-1">@GA_104a</code>)
+                                    Tip: <code class="bg-gray-100 px-1">@GA_XXX</code> searches for the book's title (e.g., <code class="bg-gray-100 px-1">@GA_104a</code>)
                                 </div>
                             </div>
                         </div>
@@ -525,14 +525,41 @@
             currentSearchTerm = query;  // Store current search term
             console.log('Starting search for query:', query);
 
-            // Command: open GA wiki page when user enters @GA_XXX (accepts GA_104a, GA-104a, GA 104a, with optional .pdf)
+            // Command: search for book title when user enters @GA_XXX (accepts GA_104a, GA-104a, GA 104a, with optional .pdf)
             const gaCmdMatch = query.match(/^@GA[_\s-]?(\d{1,4}[A-Za-z]?)(?:\.pdf)?$/i);
             if (gaCmdMatch) {
                 const id = gaCmdMatch[1];
-                const normalized = `GA_${id}`; // Build canonical slug for wiki
-                const url = `https://anthrowiki.at/${normalized}`;
-                window.open(url, '_blank', 'noopener');
-                return; // Skip normal search
+                const normalized = `GA_${id}`; // Build canonical filename
+                try {
+                    console.log(`Fetching title for book: ${normalized}`);
+                    const response = await fetch(`/pdf/title_for_search/${encodeURIComponent(normalized)}`);
+                    const data = await response.json();
+                    
+                    if (response.ok && data.title) {
+                        // Convert @ command to a title search with quotes for exact phrase matching
+                        const titleSearch = `"${data.title}"`;
+                        console.log(`Converting @${normalized} to title search: ${titleSearch}`);
+                        
+                        // Update the search input to show the actual search being performed
+                        searchInput.value = titleSearch;
+                        currentSearchTerm = titleSearch;
+                        
+                        // Recursively call performSearch with the new title search
+                        await performSearch();
+                        return;
+                    } else {
+                        // If book not found, show error and return
+                        console.error(`Book not found: ${normalized}`);
+                        resultsDiv.innerHTML = `<div class="text-center text-gray-500 py-8">Book "${normalized}.pdf" not found in library</div>`;
+                        searchProgress.style.display = 'none';
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Error fetching book title:', error);
+                    resultsDiv.innerHTML = `<div class="text-center text-gray-500 py-8">Error loading book "${normalized}.pdf"</div>`;
+                    searchProgress.style.display = 'none';
+                    return;
+                }
             }
             
             if (!query) {
