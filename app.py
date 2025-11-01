@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify, Response, send_file,
 import os
 from whoosh.index import create_in, open_dir
 from whoosh.fields import Schema, TEXT, ID, STORED
+from whoosh.analysis import RegexTokenizer
 from whoosh.qparser import QueryParser, OrGroup
 import pdfplumber
 from pathlib import Path
@@ -13,11 +14,14 @@ import re
 app = Flask(__name__)
 
 # Schema for our search index
+# Case-sensitive analyzer that preserves case
+case_sensitive_analyzer = RegexTokenizer()  # Tokenizes on whitespace but preserves case
 schema = Schema(
     path=ID(stored=True),
     filename=STORED,
     page_num=STORED,
-    content=TEXT(stored=True)
+    content=TEXT(stored=True),  # Normal case-insensitive field
+    content_case=TEXT(stored=True, analyzer=case_sensitive_analyzer)  # Case-sensitive field
 )
 
 @lru_cache(maxsize=1000)
@@ -71,7 +75,8 @@ def index_pdf(pdf_path):
                     path=str(pdf_path),
                     filename=pdf_path.name,
                     page_num=page_num,
-                    content=text
+                    content=text,
+                    content_case=text  # Store same text for case-sensitive search
                 )
     writer.commit()
 
@@ -252,7 +257,21 @@ def search():
     def generate_search_results():
         ix = init_index()
         with ix.searcher() as searcher:
-            query_parser = QueryParser("content", ix.schema, group=OrGroup)
+            # Check for case-sensitive terms (prefixed with +)
+            case_sensitive_terms = re.findall(r'\+(\S+)', query)
+            modified_query = query
+            
+            # If there are case-sensitive terms, build a custom query
+            if case_sensitive_terms:
+                print(f"Case-sensitive terms detected: {case_sensitive_terms}")
+                # Replace +term with content_case:term in the query
+                for term in case_sensitive_terms:
+                    modified_query = modified_query.replace(f'+{term}', f'content_case:{term}')
+                print(f"Modified query: {modified_query}")
+            
+            # Use appropriate parser
+            from whoosh import qparser
+            query_parser = qparser.MultifieldParser(["content", "content_case"], ix.schema, group=OrGroup)
             
             try:
                 # Determine search type and extract terms for highlighting
@@ -269,12 +288,12 @@ def search():
                 # Fallback to individual terms if no phrases found or query is not just phrases
                 if not highlight_terms:
                     highlight_terms = [
-                        term for term in query.replace('"', '').split() 
+                        term.lstrip('+') for term in query.replace('"', '').split() 
                         if term.upper() not in ['AND', 'OR', 'NOT']
                     ]
                     print(f"Using terms: {highlight_terms}")
 
-                q = query_parser.parse(query)
+                q = query_parser.parse(modified_query)
                 print(f"Parsed query: {q}")
                 results = searcher.search(q, limit=None)
                 print(f"Found {len(results)} initial results")

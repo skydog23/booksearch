@@ -1,0 +1,123 @@
+Page Boundary Search Options
+==============================
+
+Problem:
+--------
+Current page-by-page indexing can miss matches when search terms span across 
+page boundaries. For example, if "machine learning" appears with "machine" at 
+the end of page 5 and "learning" at the start of page 6, the current search 
+won't find it.
+
+Proposed Solutions:
+-------------------
+
+Option 1: Add Overlapping Page Content (RECOMMENDED)
+-----------------------------------------------------
+Instead of searching "pairs of pages," add overlapping content during indexing.
+
+Implementation:
+- For each page, index:
+  1. The page's full content (as currently done)
+  2. Plus the last N words from the previous page
+  3. Plus the first N words from the next page
+
+Advantages:
+- Catches boundary-spanning phrases without doubling search time
+- Minimal impact on index size (only adds overlap regions)
+- No changes needed to UI or result display
+- Maintains current page number accuracy
+
+Disadvantages:
+- Slightly larger index (proportional to overlap size)
+- Needs careful handling of first/last pages in documents
+
+Recommended overlap: ~50 words or 1-2 paragraphs
+
+
+Option 2: Index Adjacent Page Pairs
+------------------------------------
+Create synthetic "page pair" documents during indexing.
+
+Implementation:
+- Index both individual pages AND page pairs:
+  - Page 1, Page 2, Page 3, ... (as now)
+  - Page 1-2, Page 2-3, Page 3-4, ... (new)
+
+Advantages:
+- Guaranteed to catch all boundary matches
+- Simple conceptual model
+
+Disadvantages:
+- Roughly doubles index size
+- Roughly doubles search results to process
+- UI complexity: How to display "Page 5-6" results?
+- Duplicate results: A match on page 5 would show as both "Page 5" and "Page 4-5"
+
+
+Option 3: Larger Context Windows
+---------------------------------
+Replace page-based indexing with overlapping text windows.
+
+Implementation:
+- Instead of indexing by PDF pages, index by text windows
+- Example: 1000-word windows with 200-word overlap
+- Map results back to page numbers for display
+
+Advantages:
+- Most flexible approach
+- Catches all boundary issues
+- Could improve search relevance overall
+
+Disadvantages:
+- Major architectural change
+- Complex mapping from windows back to page numbers
+- May produce less intuitive results (multiple hits per page)
+- Significant development effort
+
+
+Performance Considerations:
+---------------------------
+- Current searches are already very fast
+- User noted that doubling search time would be acceptable
+- Disk space for index likely not a concern for most use cases
+- Option 1 has minimal performance impact
+- Option 2 roughly doubles search processing time
+- Option 3 similar to Option 2 but with added complexity
+
+
+Recommendation:
+---------------
+Option 1 (Overlapping Page Content) with ~50 word overlap provides the best 
+balance of:
+- Effectiveness: Catches most boundary-spanning phrases
+- Performance: Minimal impact on search speed
+- Simplicity: No UI changes needed
+- Maintenance: Minimal code complexity
+
+Implementation Notes:
+---------------------
+For Option 1 implementation:
+1. Modify index_pdf() function in app.py
+2. Extract text from all pages first (to enable look-ahead/look-back)
+3. For each page, concatenate:
+   - Last N words of previous page (if exists)
+   - Full current page content
+   - First N words of next page (if exists)
+4. Index this combined content with the current page number
+5. No changes needed to search or UI logic
+
+Questions to Answer Before Implementation:
+-------------------------------------------
+1. How much overlap is needed?
+   - Last/first sentence of adjacent pages?
+   - Last/first paragraph?
+   - Fixed word count (e.g., 50 words)?
+
+2. Should this be always-on or an optional mode?
+   - Likely always-on since performance impact is minimal
+
+3. Edge cases to handle:
+   - First page of document (no previous page)
+   - Last page of document (no next page)
+   - Very short pages (less than overlap size)
+
