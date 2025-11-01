@@ -29,41 +29,30 @@
         }
         .page-tooltip {
             display: none;
-            position: absolute;
-            top: 100%;  /* Changed from bottom: 100% to top: 100% */
-            left: 50%;
+            position: fixed;  /* Use fixed positioning */
+            top: auto;  /* Will be calculated dynamically */
+            left: auto;  /* Will be calculated dynamically */
             transform: translateX(-50%);
-            margin-top: 8px;  /* Changed from margin-bottom to margin-top */
+            margin-top: 8px;
             background: white;
             border: 1px solid #e2e8f0;
             border-radius: 0.5rem;
             padding: 1rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             z-index: 50;
-            width: 400px;  /* Increased from 300px */
-            max-width: 90vw;  /* Prevent tooltip from extending beyond viewport */
+            width: 400px;
+            max-width: 90%;  /* Constrain to avoid overflow */
             font-size: 0.875rem;
             color: #4a5568;
             text-align: left;
-            white-space: pre-wrap;  /* Better handling of whitespace */
-            line-height: 1.5;  /* Better readability */
+            white-space: pre-wrap;
+            line-height: 1.5;
+            pointer-events: none;  /* Allow mouse to pass through when positioning */
         }
         .page-number:hover .page-tooltip {
             display: block;
         }
-        /* Move arrow to top of tooltip */
-        .page-tooltip::after {
-            content: '';
-            position: absolute;
-            top: -5px;  /* Changed from bottom: -5px */
-            left: 50%;
-            transform: translateX(-50%) rotate(45deg);
-            width: 10px;
-            height: 10px;
-            background: white;
-            border-left: 1px solid #e2e8f0;  /* Changed from border-right */
-            border-top: 1px solid #e2e8f0;   /* Changed from border-bottom */
-        }
+        /* Remove arrow since tooltip is centered on panel, not button */
         
         .title-container {
             position: relative; /* Needed for tooltip positioning */
@@ -495,6 +484,30 @@
                     <div class="page-tooltip">${result.snippets[page]}</div>
                 </span>
             `).join('');
+            
+            // Add hover handlers for tooltip positioning
+            pagesDiv.addEventListener('mouseover', (e) => {
+                const pageElement = e.target.closest('.page-number');
+                if (pageElement) {
+                    const tooltip = pageElement.querySelector('.page-tooltip');
+                    if (tooltip) {
+                        // Get the bounding rect of the page number button
+                        const buttonRect = pageElement.getBoundingClientRect();
+                        
+                        // Get the results column to center tooltip within it
+                        const resultsColumn = document.querySelector('.results-column');
+                        if (resultsColumn) {
+                            const columnRect = resultsColumn.getBoundingClientRect();
+                            // Calculate the horizontal center of the results column
+                            const centerX = columnRect.left + (columnRect.width / 2);
+                            
+                            // Position tooltip below the button, centered on results column
+                            tooltip.style.top = `${buttonRect.bottom + 8}px`;
+                            tooltip.style.left = `${centerX}px`;
+                        }
+                    }
+                }
+            });
             
             // Add click handlers for page numbers
             pagesDiv.addEventListener('click', (e) => {
