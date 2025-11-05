@@ -355,8 +355,9 @@ def search():
 
                         # Generate snippet
                         snippet_text = ""
-                        if search_type == 'phrase':
+                        if search_type == 'phrase' or case_sensitive_terms:
                             # Use our custom phrase highlighter for snippets
+                            # Also use for case-sensitive searches since Whoosh can't highlight content_case field matches
                             snippet_text = highlight_phrases(r['content'], highlight_terms)
                         else:
                             # Use Whoosh's default highlighter for term searches

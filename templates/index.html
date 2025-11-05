@@ -438,7 +438,7 @@
         function createBookResult(result) {
             const div = document.createElement('div');
             div.className = 'bg-white px-6 py-3 rounded-lg shadow-md';
-            div.title = `${result.match_count} total matches in this book`; // Add tooltip here
+            // Removed book-level tooltip to avoid confusion with page-level snippet tooltips
             
             // Main container for title and pages, using flex layout
             const container = document.createElement('div');
