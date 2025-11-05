@@ -278,20 +278,23 @@ def search():
                 search_type = 'terms'
                 highlight_terms = []
                 
-                # Regex to find quoted phrases
+                # First, extract quoted phrases
                 phrases = re.findall(r'"([^"]*)"', query)
                 if phrases:
                     search_type = 'phrase'
-                    highlight_terms = [p.strip() for p in phrases if p.strip()]
-                    print(f"Found phrases: {highlight_terms}")
+                    highlight_terms.extend([p.strip() for p in phrases if p.strip()])
+                    print(f"Found phrases: {phrases}")
 
-                # Fallback to individual terms if no phrases found or query is not just phrases
-                if not highlight_terms:
-                    highlight_terms = [
-                        term.lstrip('+') for term in query.replace('"', '').split() 
-                        if term.upper() not in ['AND', 'OR', 'NOT']
-                    ]
-                    print(f"Using terms: {highlight_terms}")
+                # Also extract individual terms (after removing quoted sections)
+                # This handles queries like: ("foo bar" OR boo)
+                query_without_quotes = re.sub(r'"[^"]*"', '', query)
+                individual_terms = [
+                    term.lstrip('+').rstrip('*') for term in query_without_quotes.split() 
+                    if term.upper() not in ['AND', 'OR', 'NOT', '(', ')']
+                ]
+                highlight_terms.extend(individual_terms)
+                
+                print(f"All highlight terms: {highlight_terms}")
 
                 q = query_parser.parse(modified_query)
                 print(f"Parsed query: {q}")

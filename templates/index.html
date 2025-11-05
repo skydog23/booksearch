@@ -335,7 +335,7 @@
                 console.log('Found quoted phrases:', phrases);
                 phrases.forEach(phrase => {
                     phrase = phrase.replace(/\\"/g, '').replace(/"/g, '').trim();
-                    if (phrase.length > 2) {
+                    if (phrase) {
                         highlightTerms.push(phrase);
                     }
                 });
@@ -352,7 +352,15 @@
                 const individualTerms = remainingText.split(/\s+/);
                 console.log('Individual terms:', individualTerms);
                 individualTerms.forEach(term => {
-                    if (term.length > 2 && !['and', 'or', 'not'].includes(term.toLowerCase())) {
+                    // Strip + prefix (case-sensitive) and * suffix (wildcards)
+                    if (term.startsWith('+')) {
+                        term = term.substring(1);
+                    }
+                    if (term.endsWith('*')) {
+                        term = term.substring(0, term.length - 1);
+                    }
+                    // Filter out operators and parentheses
+                    if (term && !['and', 'or', 'not', '(', ')'].includes(term.toLowerCase())) {
                         highlightTerms.push(term);
                     }
                 });
