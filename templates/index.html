@@ -352,6 +352,9 @@
                 const individualTerms = remainingText.split(/\s+/);
                 console.log('Individual terms:', individualTerms);
                 individualTerms.forEach(term => {
+                    // Strip parentheses from beginning and end
+                    term = term.replace(/^\(+/, '').replace(/\)+$/, '');
+                    
                     // Strip + prefix (case-sensitive) and * suffix (wildcards)
                     if (term.startsWith('+')) {
                         term = term.substring(1);
@@ -359,8 +362,8 @@
                     if (term.endsWith('*')) {
                         term = term.substring(0, term.length - 1);
                     }
-                    // Filter out operators and parentheses
-                    if (term && !['and', 'or', 'not', '(', ')'].includes(term.toLowerCase())) {
+                    // Filter out operators and empty strings
+                    if (term && !['and', 'or', 'not'].includes(term.toLowerCase())) {
                         highlightTerms.push(term);
                     }
                 });
@@ -651,10 +654,10 @@
                             if (update.status === 'searching') {
                                 console.log('Search in progress:', update);
                                 searchProgressText.textContent = update.message || `${update.total_pages} pages found`;
-                                if (update.current_book) {
-                                    // Assuming we process about 100 books max, adjust the progress
-                                    const progress = Math.min((update.current_book / 100) * 100, 90);
-                                    updateProgress(progress);
+                                if (update.current_book && update.total_books) {
+                                    // Calculate accurate progress based on books processed
+                                    const progressPercent = (update.current_book / update.total_books) * 90;
+                                    updateProgress(progressPercent);
                                 }
                             }
                             

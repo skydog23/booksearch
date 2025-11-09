@@ -261,6 +261,16 @@ def search():
             case_sensitive_terms = re.findall(r'\+(\S+)', query)
             modified_query = query
             
+            # Expand wildcard terms: term* -> (term OR term*)
+            # This makes wildcards more intuitive by including the base term
+            wildcard_pattern = r'\b(\w+)\*'
+            wildcards_found = re.findall(wildcard_pattern, modified_query)
+            if wildcards_found:
+                print(f"Wildcard terms detected: {wildcards_found}")
+                # Replace each term* with (term OR term*)
+                modified_query = re.sub(wildcard_pattern, r'(\1 OR \1*)', modified_query)
+                print(f"Expanded wildcards: {modified_query}")
+            
             # If there are case-sensitive terms, build a custom query
             if case_sensitive_terms:
                 print(f"Case-sensitive terms detected: {case_sensitive_terms}")
@@ -301,11 +311,20 @@ def search():
                 results = searcher.search(q, limit=None)
                 print(f"Found {len(results)} initial results")
                 
+                # First pass: count unique books for progress tracking
+                unique_books = set()
+                for r in results:
+                    if debugSelectBooks and r['filename'] != 'GA_004.pdf':
+                        continue
+                    unique_books.add(r['filename'])
+                total_books_to_process = len(unique_books)
+                print(f"Total unique books with matches: {total_books_to_process}")
+                
                 # Send initial progress update
                 initial_update = {
                     "status": "searching",
                     "message": "Starting search...",
-                    "total_books": 0,
+                    "total_books": total_books_to_process,
                     "total_pages": 0
                 }
                 print(f"Sending initial update: {initial_update}")
@@ -325,6 +344,19 @@ def search():
                             continue
                             
                         if filename not in books:
+                            processed_books += 1
+                            # Send progress update BEFORE expensive operations
+                            progress_update = {
+                                "status": "searching",
+                                "message": f"Processing book {processed_books} of {total_books_to_process}...",
+                                "current_book": processed_books,
+                                "total_books": total_books_to_process,
+                                "total_pages": total_pages
+                            }
+                            print(f"Processing book {filename}")
+                            yield json.dumps(progress_update) + "\n"
+                            
+                            # Now do the expensive operations
                             books[filename] = {
                                 'filename': filename,
                                 'title': get_pdf_title(filename),
@@ -335,16 +367,6 @@ def search():
                                 'search_type': search_type,
                                 'highlight_terms': highlight_terms
                             }
-                            processed_books += 1
-                            # Send progress update for each new book
-                            progress_update = {
-                                "status": "searching",
-                                "message": f"Processing book {processed_books}...",
-                                "current_book": processed_books,
-                                "total_pages": total_pages
-                            }
-                            print(f"Processing book {filename}")
-                            yield json.dumps(progress_update) + "\n"
                         
                         books[filename]['pages'].add(r['page_num'])
                         total_pages += 1
@@ -359,16 +381,14 @@ def search():
                         # Generate snippet
                         snippet_text = ""
                         if search_type == 'phrase' or case_sensitive_terms:
-                            # Use our custom phrase highlighter for snippets
-                            # Also use for case-sensitive searches since Whoosh can't highlight content_case field matches
                             snippet_text = highlight_phrases(r['content'], highlight_terms)
                         else:
-                            # Use Whoosh's default highlighter for term searches
                             snippet_text = r.highlights("content")
                         
-                        # Clean up whitespace for better tooltip display
-                        cleaned_snippet = re.sub(r'\s+', ' ', snippet_text).strip()
-                        books[filename]['snippets'][r['page_num']] = cleaned_snippet
+                        if not snippet_text:
+                            snippet_text = r['content'][:300] + "..."
+                        
+                        books[filename]['snippets'][r['page_num']] = snippet_text
 
                         books[filename]['score'] += 1 # Increment page count
                     except Exception as result_error:
