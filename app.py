@@ -311,6 +311,14 @@ def search():
                 results = searcher.search(q, limit=None)
                 print(f"Found {len(results)} initial results")
                 
+                # Decide which highlighter to use based on result count
+                # Whoosh's highlighter is better but VERY slow with wildcards on large result sets
+                use_fast_highlighter = len(results) > 200
+                if use_fast_highlighter:
+                    print(f"Using fast highlighter (highlight_phrases) due to {len(results)} results")
+                else:
+                    print(f"Using Whoosh's highlighter for better quality with {len(results)} results")
+                
                 # First pass: count unique books for progress tracking
                 unique_books = set()
                 for r in results:
@@ -378,12 +386,19 @@ def search():
                             page_match_count += page_content_lower.count(term.lower())
                         books[filename]['match_count'] += page_match_count
 
-                        # Generate snippet
+                        # Generate snippet using appropriate highlighter
                         snippet_text = ""
-                        if search_type == 'phrase' or case_sensitive_terms:
+                        if use_fast_highlighter:
+                            # Fast highlighter for large result sets
                             snippet_text = highlight_phrases(r['content'], highlight_terms)
                         else:
-                            snippet_text = r.highlights("content")
+                            # Whoosh's highlighter for better quality on smaller result sets
+                            if search_type == 'phrase' or case_sensitive_terms:
+                                # For phrase/case-sensitive, must use highlight_phrases
+                                snippet_text = highlight_phrases(r['content'], highlight_terms)
+                            else:
+                                # Use Whoosh's highlighter for better quality
+                                snippet_text = r.highlights("content")
                         
                         if not snippet_text:
                             snippet_text = r['content'][:300] + "..."
