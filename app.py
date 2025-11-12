@@ -14,14 +14,17 @@ import re
 app = Flask(__name__)
 
 # Schema for our search index
-# Case-sensitive analyzer that preserves case
-case_sensitive_analyzer = RegexTokenizer()  # Tokenizes on whitespace but preserves case
+# For case-sensitive search, we need an analyzer that does NOT lowercase the text
+# Whoosh's default TEXT field uses StandardAnalyzer which includes LowercaseFilter
+# We'll use RegexTokenizer which just splits on word boundaries without lowercasing
+case_sensitive_analyzer = RegexTokenizer()  # Tokenizes but preserves case
+
 schema = Schema(
     path=ID(stored=True),
     filename=STORED,
     page_num=STORED,
-    content=TEXT(stored=True),  # Normal case-insensitive field
-    content_case=TEXT(stored=True, analyzer=case_sensitive_analyzer)  # Case-sensitive field
+    content=TEXT(stored=True),  # Normal case-insensitive field (includes LowercaseFilter)
+    content_case=TEXT(stored=True, analyzer=case_sensitive_analyzer)  # Case-sensitive field (no lowercasing)
 )
 
 @lru_cache(maxsize=1000)
@@ -247,6 +250,33 @@ def index_books():
 # Add at the top of the file, after the imports
 debugSelectBooks = False  # When True, only search GA_004.pdf
 
+def replace_placeholder_in_query(query_tree, placeholder, replacement):
+    """
+    Recursively traverse a Whoosh query tree and replace placeholder terms with actual queries.
+    """
+    from whoosh.query import Term, And, Or, Not, Phrase
+    
+    # If this is a Term node and matches our placeholder
+    if isinstance(query_tree, Term):
+        if query_tree.text == placeholder:
+            return replacement
+        return query_tree
+    
+    # If this is a compound query (And, Or, Not), recursively process children
+    if isinstance(query_tree, (And, Or)):
+        new_children = [replace_placeholder_in_query(child, placeholder, replacement) 
+                       for child in query_tree.children()]
+        if isinstance(query_tree, And):
+            return And(new_children)
+        else:
+            return Or(new_children)
+    
+    if isinstance(query_tree, Not):
+        return Not(replace_placeholder_in_query(query_tree.query, placeholder, replacement))
+    
+    # For other query types, return as-is
+    return query_tree
+
 @app.route('/search')
 def search():
     query = request.args.get('q', '')
@@ -258,30 +288,82 @@ def search():
         ix = init_index()
         with ix.searcher() as searcher:
             # Check for case-sensitive terms (prefixed with +)
-            case_sensitive_terms = re.findall(r'\+(\S+)', query)
+            # Match + followed by word characters, *, and ? but stop at special operators and parens
+            case_sensitive_terms = re.findall(r'\+([\w*?]+)', query)
             modified_query = query
+            has_case_sensitive_wildcard = False
+            case_sensitive_wildcard_queries = []  # Store programmatic queries
             
-            # Expand wildcard terms: term* -> (term OR term*)
+            # FIRST: Handle case-sensitive terms (replace + prefix with content_case: field)
+            if case_sensitive_terms:
+                print(f"Case-sensitive terms detected: {case_sensitive_terms}")
+                # Check if any case-sensitive term has a wildcard
+                # Whoosh wildcards are case-insensitive by default, so we need special handling
+                for term in case_sensitive_terms:
+                    if '*' in term:
+                        has_case_sensitive_wildcard = True
+                        print(f"WARNING: Case-sensitive wildcard detected: +{term}")
+                        print(f"         Whoosh wildcards are inherently case-insensitive.")
+                        print(f"         Converting to explicit OR + regex for case-sensitive matching...")
+                        # For Fest*, we want to match: Fest, Feste, Festival, etc.
+                        # Strategy: Build Whoosh query objects programmatically to avoid escaping issues
+                        base_term = term.rstrip('*')  # Remove trailing *
+                        
+                        # Store the info for building the query programmatically later
+                        case_sensitive_wildcard_queries.append({
+                            'original': f'+{term}',
+                            'base_term': base_term,
+                            'type': 'wildcard'
+                        })
+                        
+                        # For now, just replace with a placeholder that we'll handle specially
+                        # Use a unique marker that won't appear in normal text
+                        # Use lowercase because Whoosh lowercases terms in the default 'content' field
+                        placeholder = f'cswild{len(case_sensitive_wildcard_queries)-1}marker'
+                        modified_query = modified_query.replace(f'+{term}', placeholder)
+                        print(f"         Base term: {base_term}")
+                        print(f"         Will build programmatic query for case-sensitive wildcard")
+                    elif '?' in term:
+                        has_case_sensitive_wildcard = True
+                        print(f"WARNING: Case-sensitive wildcard (?) detected: +{term}")
+                        print(f"         Converting to regex for case-sensitive matching...")
+                        # Replace each ? with exactly one word character
+                        # Use \\w which matches any word character (letter, digit, underscore, Unicode letters)
+                        # Using string literal to avoid escaping issues
+                        regex_term = term.replace('?', '\\w')  # Literal backslash-w
+                        modified_query = modified_query.replace(f'+{term}', f'content_case:/{regex_term}/')
+                        print(f"         Converted to regex: content_case:/{regex_term}/")
+                    else:
+                        # No wildcard, use normal field specification
+                        modified_query = modified_query.replace(f'+{term}', f'content_case:{term}')
+                print(f"Modified query after case-sensitive replacement: {modified_query}")
+            
+            # SECOND: Expand wildcard terms: term* -> (term OR term*)
             # This makes wildcards more intuitive by including the base term
-            wildcard_pattern = r'\b(\w+)\*'
+            # BUT: Don't expand wildcards that are part of field specifications (content_case:term*)
+            # We need to match wildcards that are NOT preceded by "fieldname:"
+            
+            # Find wildcards that are NOT part of a field specification
+            # Match word boundaries followed by word chars and *, but not when preceded by a colon
+            wildcard_pattern = r'(?<![:\w])(\w+)\*'
             wildcards_found = re.findall(wildcard_pattern, modified_query)
             if wildcards_found:
-                print(f"Wildcard terms detected: {wildcards_found}")
-                # Replace each term* with (term OR term*)
+                print(f"Wildcard terms detected (non-field-specific): {wildcards_found}")
+                # Replace each standalone term* with (term OR term*)
+                # This won't match content_case:Fest* because of the negative lookbehind
                 modified_query = re.sub(wildcard_pattern, r'(\1 OR \1*)', modified_query)
                 print(f"Expanded wildcards: {modified_query}")
             
-            # If there are case-sensitive terms, build a custom query
-            if case_sensitive_terms:
-                print(f"Case-sensitive terms detected: {case_sensitive_terms}")
-                # Replace +term with content_case:term in the query
-                for term in case_sensitive_terms:
-                    modified_query = modified_query.replace(f'+{term}', f'content_case:{term}')
-                print(f"Modified query: {modified_query}")
-            
             # Use appropriate parser
             from whoosh import qparser
-            query_parser = qparser.MultifieldParser(["content", "content_case"], ix.schema, group=OrGroup)
+            # For case-sensitive terms, we need to use QueryParser that doesn't automatically
+            # search all fields. We'll use a single-field parser on 'content' by default,
+            # but the content_case: field prefix will override it for case-sensitive terms.
+            query_parser = qparser.QueryParser("content", ix.schema, group=OrGroup)
+            
+            # Enable regex plugin for case-sensitive wildcard support
+            # This allows us to use /regex/ syntax in queries
+            query_parser.add_plugin(qparser.RegexPlugin())
             
             try:
                 # Determine search type and extract terms for highlighting
@@ -307,7 +389,33 @@ def search():
                 print(f"All highlight terms: {highlight_terms}")
 
                 q = query_parser.parse(modified_query)
-                print(f"Parsed query: {q}")
+                print(f"Parsed query (before wildcard substitution): {q}")
+                
+                # If we have case-sensitive wildcard queries, build them programmatically
+                if case_sensitive_wildcard_queries:
+                    from whoosh.query import Term, Regex, Or
+                    print(f"Building programmatic queries for {len(case_sensitive_wildcard_queries)} case-sensitive wildcards")
+                    
+                    # Build the replacement queries
+                    for i, wq in enumerate(case_sensitive_wildcard_queries):
+                        base_term = wq['base_term']
+                        # Create an OR query: exact term OR regex match
+                        exact_query = Term("content_case", base_term)
+                        # For regex, we need to pass the pattern directly without / delimiters
+                        regex_pattern = base_term + r'\w+'
+                        regex_query = Regex("content_case", regex_pattern)
+                        or_query = Or([exact_query, regex_query])
+                        
+                        print(f"   Placeholder {i}: {base_term}* → (Term:{base_term} OR Regex:{regex_pattern})")
+                        
+                        # Replace the placeholder in the parsed query
+                        # We need to traverse the query tree and replace Term nodes that match our placeholder
+                        # Use the same lowercase format we used when creating the placeholder
+                        placeholder_term = f'cswild{i}marker'
+                        q = replace_placeholder_in_query(q, placeholder_term, or_query)
+                    
+                    print(f"Parsed query (after wildcard substitution): {q}")
+                
                 results = searcher.search(q, limit=None)
                 print(f"Found {len(results)} initial results")
                 
