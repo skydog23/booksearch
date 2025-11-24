@@ -368,14 +368,18 @@
                         class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
                         Index
                     </button>
-                    <button id="favoritesBtn"
-                        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path
-                                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                        Favorites
-                    </button>
+                    <div class="title-container">
+                        <button id="favoritesBtn"
+                            class="h-10 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
+                                fill="currentColor">
+                                <path
+                                    d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                        </button>
+                        <div class="title-tooltip" style="width: max-content; min-width: auto;">Open favorites list
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Add search info display -->
@@ -457,6 +461,7 @@
     </div>
 
     <script>
+        const debug = false;
         let currentSearch = null;
         let currentSearchTerm = '';  // Store current search term
         let searchController = null;  // Add AbortController for search requests
@@ -508,12 +513,12 @@
 
             // Clean up search term for highlighting by removing logical operators
             let highlightTerms = [];
-            console.log('Original search term:', currentSearchTerm);
+            if (debug) console.log('Original search term:', currentSearchTerm);
 
             if (currentSearchTerm) {
                 // First extract quoted phrases
                 const phrases = currentSearchTerm.match(/"([^"]*)"/g) || [];
-                console.log('Found quoted phrases:', phrases);
+                if (debug) console.log('Found quoted phrases:', phrases);
                 phrases.forEach(phrase => {
                     phrase = phrase.replace(/\\"/g, '').replace(/"/g, '').trim();
                     if (phrase) {
@@ -528,10 +533,10 @@
                     .replace(/ OR /g, ' ')
                     .replace(/ NOT /g, ' ')
                     .trim();
-                console.log('Remaining text after removing operators:', remainingText);
+                if (debug) console.log('Remaining text after removing operators:', remainingText);
 
                 const individualTerms = remainingText.split(/\s+/);
-                console.log('Individual terms:', individualTerms);
+                if (debug) console.log('Individual terms:', individualTerms);
                 individualTerms.forEach(term => {
                     // Strip parentheses from beginning and end
                     term = term.replace(/^\(+/, '').replace(/\)+$/, '');
@@ -549,7 +554,7 @@
                     }
                 });
             }
-            console.log('Final highlight terms:', highlightTerms);
+            if (debug) console.log('Final highlight terms:', highlightTerms);
 
             // If this is a different PDF, load it completely
             if (currentPdfFile !== filename) {
@@ -563,9 +568,9 @@
                  *   To use postMessage-only, set searchParam to '' and rely solely on the find message below.
                  */
                 const searchParam = highlightTerms.length ? `&search=${encodeURIComponent(highlightTerms.join(' '))}` : '';
-                console.log('Search parameter for URL:', searchParam);
+                if (debug) console.log('Search parameter for URL:', searchParam);
                 const viewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfUrl)}#page=${page}${searchParam}`;
-                console.log('Full viewer URL:', viewerUrl);
+                if (debug) console.log('Full viewer URL:', viewerUrl);
                 pdfViewer.src = viewerUrl;
 
                 // Update the title
@@ -588,7 +593,7 @@
                                 findPrevious: false,
                                 matchDiacritics: true
                             };
-                            console.log('Sending find message to PDF viewer:', findMessage);
+                            if (debug) console.log('Sending find message to PDF viewer:', findMessage);
                             pdfViewer.contentWindow.postMessage(findMessage, '*');
                         }
                     }, 1000);
@@ -620,7 +625,7 @@
                             findPrevious: false,
                             matchDiacritics: true
                         };
-                        console.log('Sending find message to PDF viewer (same file):', findMessage);
+                        if (debug) console.log('Sending find message to PDF viewer (same file):', findMessage);
                         pdfViewer.contentWindow.postMessage(findMessage, '*');
                     }
                 }, 100);
@@ -728,7 +733,7 @@
         async function performSearch() {
             const query = searchInput.value.trim();
             currentSearchTerm = query;  // Store current search term
-            console.log('Starting search for query:', query);
+            if (debug) console.log('Starting search for query:', query);
 
             // Command: search for book title when user enters @GA_XXX (accepts GA_104a, GA-104a, GA 104a, with optional .pdf)
             const gaCmdMatch = query.match(/^@GA[_\s-]?(\d{1,4}[A-Za-z]?)(?:\.pdf)?$/i);
@@ -736,14 +741,14 @@
                 const id = gaCmdMatch[1];
                 const normalized = `GA_${id}`; // Build canonical filename
                 try {
-                    console.log(`Fetching title for book: ${normalized}`);
+                    if (debug) console.log(`Fetching title for book: ${normalized}`);
                     const response = await fetch(`/pdf/title_for_search/${encodeURIComponent(normalized)}`);
                     const data = await response.json();
 
                     if (response.ok && data.title) {
                         // Convert @ command to a title search with quotes for exact phrase matching
                         const titleSearch = `"${data.title}"`;
-                        console.log(`Converting @${normalized} to title search: ${titleSearch}`);
+                        if (debug) console.log(`Converting @${normalized} to title search: ${titleSearch}`);
 
                         // Update the search input to show the actual search being performed
                         searchInput.value = titleSearch;
@@ -791,7 +796,7 @@
             let results = [];
 
             try {
-                console.log('Fetching search results...');
+                if (debug) console.log('Fetching search results...');
                 const response = await fetch(`/search?q=${encodeURIComponent(query)}`, {
                     signal: searchController.signal
                 });
@@ -799,7 +804,7 @@
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                console.log('Got response:', response.status, response.statusText);
+                if (debug) console.log('Got response:', response.status, response.statusText);
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
@@ -807,23 +812,23 @@
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) {
-                        console.log('Stream complete');
+                        if (debug) console.log('Stream complete');
                         break;
                     }
 
                     const lines = decoder.decode(value).split('\n');
-                    console.log('Received chunk with', lines.length, 'lines');
+                    if (debug) console.log('Received chunk with', lines.length, 'lines');
 
                     for (const line of lines) {
                         if (!line.trim()) {
-                            console.log('Skipping empty line');
+                            if (debug) console.log('Skipping empty line');
                             continue;
                         }
 
                         try {
-                            console.log('Raw line:', line);
+                            if (debug) console.log('Raw line:', line);
                             const update = JSON.parse(line);
-                            console.log('Parsed update:', update);
+                            if (debug) console.log('Parsed update:', update);
 
                             if (update.error) {
                                 console.error('Server reported error:', update.error);
@@ -833,7 +838,7 @@
                             }
 
                             if (update.status === 'searching') {
-                                console.log('Search in progress:', update);
+                                if (debug) console.log('Search in progress:', update);
                                 searchProgressText.textContent = update.message || `${update.total_pages} pages found`;
                                 if (update.current_book && update.total_books) {
                                     // Calculate accurate progress based on books processed
@@ -843,7 +848,7 @@
                             }
 
                             if (update.status === 'complete') {
-                                console.log('Search complete. Full update:', update);
+                                if (debug) console.log('Search complete. Full update:', update);
                                 updateProgress(90); // Leave room for processing batches
                                 const endTime = performance.now();
                                 const searchTime = ((endTime - startTime) / 1000).toFixed(2);
@@ -851,13 +856,13 @@
                                 resultsDiv.innerHTML = '';
 
                                 if (update.total_books > 0) {
-                                    console.log(`Expecting ${update.batch_count} batches of results`);
+                                    if (debug) console.log(`Expecting ${update.batch_count} batches of results`);
                                     searchInfo.innerHTML = `Found matches on ${update.total_pages} page${update.total_pages !== 1 ? 's' : ''} ` +
                                         `across ${update.total_books} book${update.total_books !== 1 ? 's' : ''} ` +
                                         `in ${searchTime} seconds`;
                                     searchInfo.classList.remove('hidden');
                                 } else {
-                                    console.log('No results found');
+                                    if (debug) console.log('No results found');
                                     searchInfo.innerHTML = `No results found (${searchTime} seconds)`;
                                     searchInfo.classList.remove('hidden');
                                     resultsDiv.innerHTML = '<div class="text-gray-500 text-center py-4">No matching documents found</div>';
@@ -865,7 +870,7 @@
                             }
 
                             if (update.status === 'batch') {
-                                console.log(`Processing batch ${update.batch_number} of results`);
+                                if (debug) console.log(`Processing batch ${update.batch_number} of results`);
                                 const results = update.results;
 
                                 // Update progress based on batch number
@@ -874,7 +879,7 @@
 
                                 // Create result elements
                                 results.forEach((result, index) => {
-                                    console.log(`Creating result element for book:`, result.filename);
+                                    if (debug) console.log(`Creating result element for book:`, result.filename);
                                     const resultElement = createBookResult(result);
                                     resultsDiv.appendChild(resultElement);
 
@@ -900,7 +905,7 @@
                 }
             } catch (error) {
                 if (error.name === 'AbortError') {
-                    console.log('Search aborted');
+                    if (debug) console.log('Search aborted');
                     return;
                 }
                 console.error('Search error:', error);
