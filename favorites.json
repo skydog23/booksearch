@@ -1,0 +1,26 @@
+[
+  {
+    "id": "2_176402033988",
+    "query": "\"damit der mensch ganz mensch\"",
+    "annotation": "Testing second saved search.",
+    "timestamp": "2025-11-24T21:38:59.884Z"
+  },
+  {
+    "id": "3_176402095043",
+    "query": "\"eine Welt\" AND \"viele Menschen\" AND Tod",
+    "annotation": "An early treffer that inspired me to write my own engine.",
+    "timestamp": "2025-11-24T21:49:10.432Z"
+  },
+  {
+    "id": "3_176402098829",
+    "query": "\"blonde leute\"",
+    "annotation": "Short but sweet",
+    "timestamp": "2025-11-24T21:49:48.287Z"
+  },
+  {
+    "id": "4_176402102582",
+    "query": "\"damit der mensch ganz mensch\"",
+    "annotation": "Adding it again.",
+    "timestamp": "2025-11-24T21:50:25.824Z"
+  }
+]

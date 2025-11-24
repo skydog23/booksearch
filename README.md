@@ -101,10 +101,10 @@ pip install -r requirements.txt --upgrade
 - Basic search: Just type words to find them in any book
 - Phrase search: Use quotes for exact phrases, e.g., `"machine learning"`
 - Boolean operators: 
-  - AND: `neural AND networks` (both terms must appear)
+  - AND: `neural AND networks` (both terms must appear
   - OR: `python OR javascript` (either term)
   - NOT: `programming NOT basic` (exclude terms)
-- Wildcards: `program*` matches programming, programs, etc.
+- Wildcards: `program*` matches programm:ing, programs, etc.
 
 ## Development Notes
 

@@ -247,6 +247,66 @@ def index_books():
 
     return Response(generate_updates(), mimetype='text/event-stream')
 
+# Favorites Storage
+FAVORITES_FILE = 'favorites.json'
+
+def load_favorites():
+    if not os.path.exists(FAVORITES_FILE):
+        return []
+    try:
+        with open(FAVORITES_FILE, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error loading favorites: {e}")
+        return []
+
+def save_favorites(favorites):
+    try:
+        with open(FAVORITES_FILE, 'w') as f:
+            json.dump(favorites, f, indent=2)
+        return True
+    except Exception as e:
+        print(f"Error saving favorites: {e}")
+        return False
+
+@app.route('/favorites', methods=['GET'])
+def get_favorites():
+    return jsonify(load_favorites())
+
+@app.route('/favorites', methods=['POST'])
+def add_favorite():
+    data = request.json
+    if not data or 'query' not in data:
+        return jsonify({"error": "Missing query"}), 400
+    
+    favorites = load_favorites()
+    new_favorite = {
+        "id": str(len(favorites) + 1) + "_" + str(int(os.times()[4] * 100)), # Simple unique ID
+        "query": data['query'],
+        "annotation": data.get('annotation', ''),
+        "timestamp": data.get('timestamp', '')
+    }
+    favorites.append(new_favorite)
+    
+    if save_favorites(favorites):
+        return jsonify(new_favorite)
+    else:
+        return jsonify({"error": "Failed to save favorite"}), 500
+
+@app.route('/favorites/<favorite_id>', methods=['DELETE'])
+def delete_favorite(favorite_id):
+    favorites = load_favorites()
+    initial_len = len(favorites)
+    favorites = [f for f in favorites if f['id'] != favorite_id]
+    
+    if len(favorites) == initial_len:
+        return jsonify({"error": "Favorite not found"}), 404
+        
+    if save_favorites(favorites):
+        return jsonify({"success": True})
+    else:
+        return jsonify({"error": "Failed to save changes"}), 500
+
 # Add at the top of the file, after the imports
 debugSelectBooks = False  # When True, only search GA_004.pdf
 
