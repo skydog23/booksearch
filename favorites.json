@@ -10,5 +10,17 @@
     "query": "\"eine Welt\" AND \"viele Menschen\" AND Tod",
     "annotation": "An early treffer that inspired me to write my own engine.",
     "timestamp": "2025-11-24T21:49:10.432Z"
+  },
+  {
+    "id": "3_177696157505",
+    "query": "chemismus",
+    "annotation": "Related to the chemical/number/musical ether",
+    "timestamp": "2026-04-23T16:26:15.053Z"
+  },
+  {
+    "id": "4_177771029478",
+    "query": "chemisch* AND leben* AND \u00e4ther AND g\u00f6tter",
+    "annotation": "GA_155 p. 198 ff.  Why the chemical and life aethers are not directly accessible to HB on the earth.",
+    "timestamp": "2026-05-02T08:24:54.776Z"
   }
 ]
