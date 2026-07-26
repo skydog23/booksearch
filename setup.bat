@@ -66,11 +66,11 @@ if exist "requirements.txt" (
 
 :: Verify Flask installation
 echo Verifying Flask installation...
-python -c "import flask; print(f'Flask version: {flask.__version__}')" >nul 2>&1
+python -c "import flask; print('Flask version: ' + flask.__version__)" >nul 2>&1
 if errorlevel 1 (
     echo Flask import failed. Trying to install Flask directly...
     pip install flask
-    python -c "import flask; print(f'Flask version: {flask.__version__}')" >nul 2>&1
+    python -c "import flask; print('Flask version: ' + flask.__version__)" >nul 2>&1
     if errorlevel 1 (
         echo Flask installation failed. Please try installing manually:
         echo venv\Scripts\activate
@@ -89,53 +89,43 @@ echo Setting up directories...
 if not exist "data" mkdir data
 
 :: Download and setup PDF.js if not already present
-if not exist "static\pdfjs" (
-    echo Setting up PDF.js...
-    if not exist "static" mkdir static
-    mkdir static\pdfjs
-    
-    :: Check if curl is available (Windows 10 version 1803+)
-    curl --version >nul 2>&1
-    if not errorlevel 1 (
-        echo Downloading PDF.js using curl...
-        curl -L https://github.com/mozilla/pdf.js/releases/download/v4.0.379/pdfjs-4.0.379-dist.zip -o pdfjs.zip
-        if errorlevel 1 (
-            echo Failed to download PDF.js with curl.
-            goto manual_pdfjs
-        )
-    ) else (
-        :: Try PowerShell if curl is not available
-        echo Downloading PDF.js using PowerShell...
-        powershell -Command "Invoke-WebRequest -Uri 'https://github.com/mozilla/pdf.js/releases/download/v4.0.379/pdfjs-4.0.379-dist.zip' -OutFile 'pdfjs.zip'"
-        if errorlevel 1 (
-            echo Failed to download PDF.js with PowerShell.
-            goto manual_pdfjs
-        )
-    )
-    
-    :: Extract PDF.js
-    echo Extracting PDF.js...
-    powershell -Command "Expand-Archive -Path 'pdfjs.zip' -DestinationPath 'static\pdfjs' -Force"
-    if errorlevel 1 (
-        echo Failed to extract PDF.js.
-        goto manual_pdfjs
-    )
-    
-    del pdfjs.zip
-    echo PDF.js setup complete
-    goto pdfjs_done
-    
-    :manual_pdfjs
-    echo.
-    echo MANUAL SETUP REQUIRED:
-    echo 1. Download pdfjs-4.0.379-dist.zip from:
-    echo    https://github.com/mozilla/pdf.js/releases/download/v4.0.379/pdfjs-4.0.379-dist.zip
-    echo 2. Extract the contents to the static\pdfjs directory
-    echo 3. Press any key when done...
-    pause
-    
-    :pdfjs_done
+if exist "static\pdfjs" goto pdfjs_done
+
+echo Setting up PDF.js...
+if not exist "static" mkdir static
+mkdir static\pdfjs
+
+:: Check if curl is available (Windows 10 version 1803+)
+curl --version >nul 2>&1
+if not errorlevel 1 (
+    echo Downloading PDF.js using curl...
+    curl -L https://github.com/mozilla/pdf.js/releases/download/v4.0.379/pdfjs-4.0.379-dist.zip -o pdfjs.zip
+    if errorlevel 1 goto manual_pdfjs
+) else (
+    echo Downloading PDF.js using PowerShell...
+    powershell -Command "Invoke-WebRequest -Uri 'https://github.com/mozilla/pdf.js/releases/download/v4.0.379/pdfjs-4.0.379-dist.zip' -OutFile 'pdfjs.zip'"
+    if errorlevel 1 goto manual_pdfjs
 )
+
+:: Extract PDF.js
+echo Extracting PDF.js...
+powershell -Command "Expand-Archive -Path 'pdfjs.zip' -DestinationPath 'static\pdfjs' -Force"
+if errorlevel 1 goto manual_pdfjs
+
+del pdfjs.zip
+echo PDF.js setup complete
+goto pdfjs_done
+
+:manual_pdfjs
+echo.
+echo MANUAL SETUP REQUIRED:
+echo 1. Download pdfjs-4.0.379-dist.zip from:
+echo    https://github.com/mozilla/pdf.js/releases/download/v4.0.379/pdfjs-4.0.379-dist.zip
+echo 2. Extract the contents to the static\pdfjs directory
+echo 3. Press any key when done...
+pause
+
+:pdfjs_done
 
 :: Run the index regeneration script
 echo Running index regeneration...
