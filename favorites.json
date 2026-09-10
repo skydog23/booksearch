@@ -12,6 +12,12 @@
     "timestamp": "2025-11-24T21:49:10.432Z"
   },
   {
+    "id": "3_176520669660",
+    "query": "(England OR Western) AND (handel* OR wirtschaft*)",
+    "annotation": "search for quotes about England's special destiny",
+    "timestamp": "2025-12-08T15:11:36.592Z"
+  },
+  {
     "id": "3_177696157505",
     "query": "chemismus",
     "annotation": "Related to the chemical/number/musical ether",
