@@ -28,5 +28,53 @@
     "query": "W\u00e4rme* AND ich AND muskel*",
     "annotation": "",
     "timestamp": "2026-05-12T19:44:22.607Z"
+  },
+  {
+    "id": "7_178202923354",
+    "query": "erhaltung AND (energie OR impuls)",
+    "annotation": "GA 183",
+    "timestamp": "2026-06-21T08:07:13.532Z"
+  },
+  {
+    "id": "7_178224299526",
+    "query": "karma AND kind AND (eltern OR vater OR mutter)",
+    "annotation": "",
+    "timestamp": "2026-06-23T19:29:55.255Z"
+  },
+  {
+    "id": "8_178392230311",
+    "query": "umgekehrte* AND kultus",
+    "annotation": "",
+    "timestamp": "2026-07-13T05:58:23.105Z"
+  },
+  {
+    "id": "9_178392372339",
+    "query": "(+Forsch* OR labor*) AND komm* AND wissen* AND nicht AND arbeit* AND wir AND ander*",
+    "annotation": "Looking for the quote where RS says we must develop other criteria for choosing people to work with: based on what they bring and not on \"tasks\" they should perform.",
+    "timestamp": "2026-07-13T06:22:03.393Z"
+  },
+  {
+    "id": "10_178431922780",
+    "query": "Erhaltung AND gesetz AND (energie OR kraft OR stoff)",
+    "annotation": "Prep for miniseries on GA 202",
+    "timestamp": "2026-07-17T20:13:47.801Z"
+  },
+  {
+    "id": "11_178431948414",
+    "query": "Erhaltung AND gesetz AND (vergeh* OR verg\u00e4ng* OR entsteh*) AND (energie OR kraft OR stoff)",
+    "annotation": "",
+    "timestamp": "2026-07-17T20:18:04.141Z"
+  },
+  {
+    "id": "12_178483740664",
+    "query": "(+Forsch* OR labor*) AND zukunft AND nicht  AND such* AND (wissen* OR arbeit*)",
+    "annotation": "",
+    "timestamp": "2026-07-23T20:10:06.633Z"
+  },
+  {
+    "id": "13_178483749437",
+    "query": "(+Forsch* OR labor*) AND zukunft AND nicht  AND such* AND ander* AND (wissen* OR arbeit*)",
+    "annotation": "",
+    "timestamp": "2026-07-23T20:11:34.363Z"
   }
 ]
