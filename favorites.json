@@ -34,5 +34,11 @@
     "query": "W\u00e4rme* AND ich AND muskel*",
     "annotation": "",
     "timestamp": "2026-05-12T19:44:22.607Z"
+  },
+  {
+    "id": "7_178889330244",
+    "query": "(forsch* OR wissenschaft) AND zusammen AND such*",
+    "annotation": "",
+    "timestamp": "2026-09-08T18:48:22.437Z"
   }
 ]
