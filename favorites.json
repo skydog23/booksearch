@@ -18,12 +18,6 @@
     "timestamp": "2025-12-08T15:11:36.592Z"
   },
   {
-    "id": "3_177696157505",
-    "query": "chemismus",
-    "annotation": "Related to the chemical/number/musical ether",
-    "timestamp": "2026-04-23T16:26:15.053Z"
-  },
-  {
     "id": "4_177771029478",
     "query": "chemisch* AND leben* AND \u00e4ther AND g\u00f6tter",
     "annotation": "GA_155 p. 198 ff.  Why the chemical and life aethers are not directly accessible to HB on the earth.",
@@ -40,5 +34,23 @@
     "query": "(forsch* OR wissenschaft) AND zusammen AND such*",
     "annotation": "",
     "timestamp": "2026-09-08T18:48:22.437Z"
+  },
+  {
+    "id": "8_178981676651",
+    "query": "Materie AND raum* AND (erfull* OR erf\u00fcll* OR ausdehn*)",
+    "annotation": "",
+    "timestamp": "2026-09-19T11:19:26.511Z"
+  },
+  {
+    "id": "8_178991335383",
+    "query": "\"Die Bedeutung der Anthroposophie\"",
+    "annotation": "",
+    "timestamp": "2026-09-20T14:09:13.819Z"
+  },
+  {
+    "id": "9_179024078581",
+    "query": "medizin* AND mathematik*",
+    "annotation": "",
+    "timestamp": "2026-09-24T09:06:25.800Z"
   }
 ]
