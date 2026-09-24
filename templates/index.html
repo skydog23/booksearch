@@ -123,24 +123,79 @@
             animation: pulse 1.5s ease-in-out infinite;
         }
 
+        #split-root {
+            display: flex;
+            flex-direction: row;
+            height: 100vh;
+            width: 100%;
+        }
+
+        #search-pane,
+        #viewer-pane {
+            min-width: 0;
+            min-height: 0;
+            box-sizing: border-box;
+        }
+
+        #viewer-pane {
+            overflow: hidden;
+        }
+
+        #searchMenu {
+            z-index: 40;
+        }
+
+        .gutter {
+            background-color: #cbd5e1;
+            background-repeat: no-repeat;
+            background-position: 50%;
+        }
+
+        .gutter.gutter-horizontal {
+            cursor: col-resize;
+        }
+
         #pdf-viewer {
             width: 100%;
-            height: calc(100vh - 2rem);
+            flex: 1 1 auto;
+            min-height: 0;
             border: none;
         }
 
         .results-column {
-            height: calc(100vh - 2rem);
+            flex: 1 1 auto;
+            min-height: 0;
             overflow-y: auto;
         }
 
-        @media (max-width: 1024px) {
-            .results-column {
-                height: 50vh;
+        .menu-item {
+            display: flex;
+            width: 100%;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 0.75rem;
+            text-align: left;
+            color: #1f2937;
+        }
+
+        .menu-item:hover {
+            background: #f3f4f6;
+        }
+
+        .menu-item:disabled {
+            opacity: 0.5;
+        }
+
+        @media (max-width: 1023px) {
+            #split-root {
+                flex-direction: column;
             }
 
-            #pdf-viewer {
-                height: 50vh;
+            #search-pane,
+            #viewer-pane {
+                width: 100% !important;
+                height: 50vh !important;
+                flex: none !important;
             }
         }
 
@@ -297,26 +352,17 @@
 </head>
 
 <body class="bg-gray-100">
-    <div class="flex flex-col lg:flex-row h-screen">
+    <div id="split-root">
         <!-- Left Column: Search Results -->
-        <div class="w-full lg:w-2/5 p-4">
-            <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">Book Search</h1>
+        <div id="search-pane" class="flex flex-col p-4">
+            <h1 class="text-3xl font-bold text-center mb-6 text-gray-800 shrink-0">Book Search</h1>
 
-            <div class="mb-6">
+            <div class="mb-6 shrink-0">
                 <div class="flex gap-4 mb-4">
                     <div class="search-input-wrapper">
                         <input type="text" id="searchInput"
                             class="w-full p-3 pr-16 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="Enter search query and press Enter...">
-
-                        <!-- Save Search Button -->
-                        <button class="save-btn" id="saveSearchBtn" title="Save this search">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
-                                fill="currentColor">
-                                <path
-                                    d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                        </button>
 
                         <!-- Search Progress Circle -->
                         <div class="search-progress" id="searchProgress">
@@ -358,26 +404,45 @@
                                     Press Enter to start search
                                 </div>
                                 <div class="mt-2 text-sm text-gray-600">
-                                    Tip: <code class="bg-gray-100 px-1">@GA_XXX</code> searches for the book's title
-                                    (e.g., <code class="bg-gray-100 px-1">@GA_104a</code>)
+                                    Tip: <code class="bg-gray-100 px-1">@GA_234</code> opens that volume
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <button onclick="indexBooks()" id="indexButton"
-                        class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
-                        Index
-                    </button>
-                    <div class="title-container">
-                        <button id="favoritesBtn"
-                            class="h-10 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
-                                fill="currentColor">
-                                <path
-                                    d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
+                    <div class="relative shrink-0" id="searchMenu">
+                        <button type="button" id="searchMenuBtn"
+                            class="h-12 px-4 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-colors">
+                            Menu
                         </button>
-                        <div class="title-tooltip" style="width: max-content; min-width: auto;">Open favorites list
+                        <div id="searchMenuPanel"
+                            class="hidden absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                            <button type="button" id="saveSearchBtn" class="menu-item">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-400" viewBox="0 0 20 20"
+                                    fill="currentColor">
+                                    <path
+                                        d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                </svg>
+                                Save this search
+                            </button>
+                            <button type="button" id="favoritesBtn" class="menu-item">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" viewBox="0 0 20 20"
+                                    fill="currentColor">
+                                    <path
+                                        d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                </svg>
+                                Favorites
+                            </button>
+                            <button type="button" id="indexButton" class="menu-item">Index</button>
+                            <form id="openVolumeForm" class="border-t border-gray-200 px-3 py-3">
+                                <div class="text-xs font-medium text-gray-500 mb-1">Open volume</div>
+                                <div class="flex gap-2">
+                                    <input id="openVolumeInput" type="text" placeholder="GA 234"
+                                        class="flex-1 border rounded px-2 py-1 text-sm">
+                                    <button type="submit"
+                                        class="px-3 py-1 bg-blue-500 text-white rounded text-sm">Open</button>
+                                </div>
+                                <div id="openVolumeError" class="hidden text-xs text-red-500 mt-1"></div>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -407,10 +472,10 @@
         </div>
 
         <!-- Right Column: PDF Viewer -->
-        <div class="w-full lg:w-3/5 bg-gray-800 p-4">
+        <div id="viewer-pane" class="flex flex-col bg-gray-800 p-4">
             <!-- Title Panel -->
             <div id="pdf-title"
-                class="bg-white rounded-lg shadow-lg p-4 mb-4 text-xl font-semibold text-gray-800 min-h-[3rem] flex items-center justify-center">
+                class="shrink-0 bg-white rounded-lg shadow-lg p-4 mb-4 text-xl font-semibold text-gray-800 min-h-[3rem] flex items-center justify-center">
                 No document selected
             </div>
             <iframe id="pdf-viewer" class="bg-white rounded-lg shadow-lg"></iframe>
@@ -460,6 +525,7 @@
         </div>
     </div>
 
+    <script src="/static/js/split.min.js"></script>
     <script>
         const debug = false;
         let currentSearch = null;
@@ -475,6 +541,29 @@
         const pdfViewer = document.getElementById('pdf-viewer');
         const pdfTitle = document.getElementById('pdf-title');
         const searchInfo = document.getElementById('searchInfo');  // Add missing reference
+        const searchMenuPanel = document.getElementById('searchMenuPanel');
+
+        let splitInstance = null;
+        function setupSplit() {
+            const wide = window.innerWidth >= 1024;
+            if (wide && !splitInstance) {
+                splitInstance = Split(['#search-pane', '#viewer-pane'], {
+                    sizes: [40, 60],
+                    minSize: [280, 360],
+                    gutterSize: 8,
+                    snapOffset: 0
+                });
+            } else if (!wide && splitInstance) {
+                splitInstance.destroy();
+                splitInstance = null;
+            }
+        }
+        setupSplit();
+        window.addEventListener('resize', setupSplit);
+
+        function closeSearchMenu() {
+            searchMenuPanel.classList.add('hidden');
+        }
 
         // Calculate the circumference of the progress circle
         const radius = 8; // matches the r attribute in SVG
@@ -507,17 +596,20 @@
             }
         }
 
-        function loadPdfPage(filename, page) {
+        function loadPdfPage(filename, page, useHighlight) {
             // Remove .pdf extension if present
             filename = filename.replace(/\.pdf$/, '');
+            // Page clicks pass the result object as the third argument. Only an explicit
+            // false suppresses highlighting, which is how "Open volume" loads a file.
+            const sourceTerm = useHighlight === false ? '' : currentSearchTerm;
 
             // Clean up search term for highlighting by removing logical operators
             let highlightTerms = [];
-            if (debug) console.log('Original search term:', currentSearchTerm);
+            if (debug) console.log('Original search term:', sourceTerm);
 
-            if (currentSearchTerm) {
+            if (sourceTerm) {
                 // First extract quoted phrases
-                const phrases = currentSearchTerm.match(/"([^"]*)"/g) || [];
+                const phrases = sourceTerm.match(/"([^"]*)"/g) || [];
                 if (debug) console.log('Found quoted phrases:', phrases);
                 phrases.forEach(phrase => {
                     phrase = phrase.replace(/\\"/g, '').replace(/"/g, '').trim();
@@ -527,7 +619,7 @@
                 });
 
                 // Then handle individual terms
-                const remainingText = currentSearchTerm
+                const remainingText = sourceTerm
                     .replace(/\"[^\"]*\"/g, '') // Remove quoted phrases
                     .replace(/ AND /g, ' ')
                     .replace(/ OR /g, ' ')
@@ -666,7 +758,13 @@
             // The new custom tooltip element
             const tooltipEl = document.createElement('div');
             tooltipEl.className = 'title-tooltip';
-            tooltipEl.textContent = result.title;
+            tooltipEl.textContent = result.title || '';
+            if (result.cycle) {
+                const cycleLine = document.createElement('div');
+                cycleLine.className = 'mt-1 font-normal text-sm';
+                cycleLine.textContent = result.cycle;
+                tooltipEl.appendChild(cycleLine);
+            }
 
             // Append the filename and the tooltip to their container
             titleContainer.appendChild(titleEl);
@@ -735,41 +833,12 @@
             currentSearchTerm = query;  // Store current search term
             if (debug) console.log('Starting search for query:', query);
 
-            // Command: search for book title when user enters @GA_XXX (accepts GA_104a, GA-104a, GA 104a, with optional .pdf)
-            const gaCmdMatch = query.match(/^@GA[_\s-]?(\d{1,4}[A-Za-z]?)(?:\.pdf)?$/i);
+            // @GA_234 opens that volume directly instead of searching for its title.
+            const gaCmdMatch = query.match(/^@\s*(?:GA[_\s-]?)?(\d{1,4}[A-Za-z]?)(?:\.pdf)?$/i);
             if (gaCmdMatch) {
-                const id = gaCmdMatch[1];
-                const normalized = `GA_${id}`; // Build canonical filename
-                try {
-                    if (debug) console.log(`Fetching title for book: ${normalized}`);
-                    const response = await fetch(`/pdf/title_for_search/${encodeURIComponent(normalized)}`);
-                    const data = await response.json();
-
-                    if (response.ok && data.title) {
-                        // Convert @ command to a title search with quotes for exact phrase matching
-                        const titleSearch = `"${data.title}"`;
-                        if (debug) console.log(`Converting @${normalized} to title search: ${titleSearch}`);
-
-                        // Update the search input to show the actual search being performed
-                        searchInput.value = titleSearch;
-                        currentSearchTerm = titleSearch;
-
-                        // Recursively call performSearch with the new title search
-                        await performSearch();
-                        return;
-                    } else {
-                        // If book not found, show error and return
-                        console.error(`Book not found: ${normalized}`);
-                        resultsDiv.innerHTML = `<div class="text-center text-gray-500 py-8">Book "${normalized}.pdf" not found in library</div>`;
-                        searchProgress.style.display = 'none';
-                        return;
-                    }
-                } catch (error) {
-                    console.error('Error fetching book title:', error);
-                    resultsDiv.innerHTML = `<div class="text-center text-gray-500 py-8">Error loading book "${normalized}.pdf"</div>`;
-                    searchProgress.style.display = 'none';
-                    return;
-                }
+                searchProgress.style.display = 'none';
+                await openVolume(query.replace(/^@/, '').trim());
+                return;
             }
 
             if (!query) {
@@ -1000,8 +1069,54 @@
         const saveAnnotationInput = document.getElementById('saveAnnotationInput');
 
         // Event Listeners
-        document.getElementById('favoritesBtn').addEventListener('click', openFavoritesModal);
-        document.getElementById('saveSearchBtn').addEventListener('click', openSaveModal);
+        document.getElementById('searchMenuBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            searchMenuPanel.classList.toggle('hidden');
+        });
+        searchMenuPanel.addEventListener('click', (e) => e.stopPropagation());
+        document.getElementById('favoritesBtn').addEventListener('click', () => {
+            closeSearchMenu();
+            openFavoritesModal();
+        });
+        document.getElementById('saveSearchBtn').addEventListener('click', () => {
+            closeSearchMenu();
+            openSaveModal();
+        });
+        document.getElementById('indexButton').addEventListener('click', () => {
+            closeSearchMenu();
+            indexBooks();
+        });
+        document.getElementById('openVolumeForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const spec = document.getElementById('openVolumeInput').value.trim();
+            if (spec) openVolume(spec);
+        });
+
+        async function openVolume(spec) {
+            const errorEl = document.getElementById('openVolumeError');
+            errorEl.classList.add('hidden');
+            errorEl.textContent = '';
+            try {
+                const response = await fetch('/volume/' + encodeURIComponent(spec));
+                const data = await response.json();
+                if (!response.ok) {
+                    const message = data.error || 'Volume not found';
+                    if (!searchMenuPanel.classList.contains('hidden')) {
+                        errorEl.textContent = message;
+                        errorEl.classList.remove('hidden');
+                    } else {
+                        resultsDiv.innerHTML = `<div class="text-center text-gray-500 py-8">${message}</div>`;
+                    }
+                    return;
+                }
+                closeSearchMenu();
+                loadPdfPage(data.filename, 1, false);
+            } catch (error) {
+                console.error('Error opening volume:', error);
+                errorEl.textContent = 'Could not open that volume';
+                errorEl.classList.remove('hidden');
+            }
+        }
 
         // Add delegated event listener for favorites list
         favoritesList.addEventListener('click', (e) => {
@@ -1018,6 +1133,7 @@
         window.addEventListener('click', (e) => {
             if (e.target === favoritesModal) closeFavoritesModal();
             if (e.target === saveModal) closeSaveModal();
+            closeSearchMenu();
         });
 
         function openFavoritesModal() {

@@ -10,6 +10,7 @@ import json
 from PyPDF2 import PdfReader
 from functools import lru_cache
 import re
+from cycle_info import forget_cycles, load_cycle_info, update_cycle_for_pdf
 
 app = Flask(__name__)
 
@@ -82,6 +83,10 @@ def index_pdf(pdf_path):
                     content_case=text  # Store same text for case-sensitive search
                 )
     writer.commit()
+    try:
+        update_cycle_for_pdf(pdf_path)
+    except Exception as exc:
+        print(f"Cycle info skipped for {pdf_path.name}: {exc}")
 
 def clean_index(data_dir):
     """Remove index entries for books that no longer exist in the data directory"""
@@ -102,7 +107,10 @@ def clean_index(data_dir):
             remaining = {doc['filename'] for doc in searcher.all_stored_fields()}
             if any(f in remaining for f in removed_files):
                 print(f"Warning: Some files were not properly removed from the index: {removed_files & remaining}")
-    
+
+    if removed_files:
+        forget_cycles(removed_files)
+
     return removed_files
 
 def highlight_phrases(text, phrases):
@@ -186,6 +194,30 @@ def get_title_for_search(filename):
         return jsonify({"title": search_title, "filename": filename})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+GA_VOLUME = re.compile(r'^(?:GA[_\s-]?)?(\d{1,4})([A-Za-z]?)$', re.IGNORECASE)
+
+def resolve_volume_filename(spec):
+    """Map '234', 'GA_104a', or '@GA 40a' to an existing data file."""
+    spec = spec.strip()
+    if spec.startswith('@'):
+        spec = spec[1:].strip()
+    spec = re.sub(r'\.pdf$', '', spec, flags=re.IGNORECASE).strip()
+    match = GA_VOLUME.match(spec)
+    if not match:
+        return None
+    filename = f"GA_{int(match.group(1)):03d}{match.group(2).lower()}.pdf"
+    if not (Path('data') / filename).exists():
+        return None
+    return filename
+
+@app.route('/volume/<path:spec>')
+def volume_lookup(spec):
+    """Resolve a GA number to a filename without searching the text."""
+    filename = resolve_volume_filename(spec)
+    if not filename:
+        return jsonify({"error": "Volume not found"}), 404
+    return jsonify({"filename": filename, "title": get_pdf_title(filename)})
 
 @app.route('/pdfjs/<path:filename>')
 def serve_pdfjs(filename):
@@ -345,6 +377,7 @@ def search():
         return jsonify([])
 
     def generate_search_results():
+        cycle_labels = load_cycle_info()
         ix = init_index()
         with ix.searcher() as searcher:
             # Check for case-sensitive terms (prefixed with +)
@@ -536,6 +569,7 @@ def search():
                             books[filename] = {
                                 'filename': filename,
                                 'title': get_pdf_title(filename),
+                                'cycle': cycle_labels.get(filename),
                                 'pages': set(),
                                 'snippets': {},
                                 'score': 0, # This is the page count
