@@ -52,5 +52,11 @@
     "query": "medizin* AND mathematik*",
     "annotation": "",
     "timestamp": "2026-09-24T09:06:25.800Z"
+  },
+  {
+    "id": "10_179027770807",
+    "query": "essen",
+    "annotation": "First six GA's are all lectures to the workers.",
+    "timestamp": "2026-09-24T19:21:48.070Z"
   }
 ]
