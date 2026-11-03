@@ -36,12 +36,6 @@
     "timestamp": "2026-09-08T18:48:22.437Z"
   },
   {
-    "id": "8_178981676651",
-    "query": "Materie AND raum* AND (erfull* OR erf\u00fcll* OR ausdehn*)",
-    "annotation": "",
-    "timestamp": "2026-09-19T11:19:26.511Z"
-  },
-  {
     "id": "8_178991335383",
     "query": "\"Die Bedeutung der Anthroposophie\"",
     "annotation": "",
@@ -58,5 +52,35 @@
     "query": "essen",
     "annotation": "First six GA's are all lectures to the workers.",
     "timestamp": "2026-09-24T19:21:48.070Z"
+  },
+  {
+    "id": "11_179051635016",
+    "query": "(vernicht* OR Imagina*) AND dimension",
+    "annotation": "Spirtualizing space by negating physical dimensions",
+    "timestamp": "2026-09-27T13:39:10.157Z"
+  },
+  {
+    "id": "12_179068827408",
+    "query": "\"einseitige Osterfest\"",
+    "annotation": "GA 223",
+    "timestamp": "2026-09-29T13:24:34.080Z"
+  },
+  {
+    "id": "13_179092808022",
+    "query": "michael* AND  dreigliederung",
+    "annotation": "",
+    "timestamp": "2026-10-02T08:01:20.212Z"
+  },
+  {
+    "id": "14_179092817256",
+    "query": "materi* AND raum AND f\u00fclle*",
+    "annotation": "matter and space-filling are synonyms",
+    "timestamp": "2026-10-02T08:02:52.566Z"
+  },
+  {
+    "id": "14_179142671509",
+    "query": "\"einen Menschen\" AND \"viele Welten\" AND Tod",
+    "annotation": "",
+    "timestamp": "2026-10-08T02:31:55.091Z"
   }
 ]
