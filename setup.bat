@@ -14,6 +14,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
+:: requirements.txt pins Flask 3.1 and Pillow 11, which need Python 3.9 or newer
+python -c "import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)" >nul 2>&1
+if errorlevel 1 (
+    echo Python 3.9 or newer is required.
+    echo Download from: https://www.python.org/downloads/
+    pause
+    exit /b 1
+)
+
 :: Display Python version
 echo Python version:
 python --version
@@ -88,22 +97,27 @@ pip list
 echo Setting up directories...
 if not exist "data" mkdir data
 
-:: Download and setup PDF.js if not already present
-if exist "static\pdfjs" goto pdfjs_done
+:: Download and setup PDF.js if not already present.
+:: Version 3.11.174 is the one the viewer integration in templates\index.html
+:: has been run against; 4.x ships ES modules (.mjs) and has not been tried.
+set PDFJS_VERSION=3.11.174
+set PDFJS_URL=https://github.com/mozilla/pdf.js/releases/download/v%PDFJS_VERSION%/pdfjs-%PDFJS_VERSION%-dist.zip
 
-echo Setting up PDF.js...
-if not exist "static" mkdir static
-mkdir static\pdfjs
+:: Test for the viewer itself, not just the folder, so a failed download is retried
+if exist "static\pdfjs\web\viewer.html" goto pdfjs_done
+
+echo Setting up PDF.js %PDFJS_VERSION%...
+if not exist "static\pdfjs" mkdir static\pdfjs
 
 :: Check if curl is available (Windows 10 version 1803+)
 curl --version >nul 2>&1
 if not errorlevel 1 (
     echo Downloading PDF.js using curl...
-    curl -L https://github.com/mozilla/pdf.js/releases/download/v4.0.379/pdfjs-4.0.379-dist.zip -o pdfjs.zip
+    curl -L %PDFJS_URL% -o pdfjs.zip
     if errorlevel 1 goto manual_pdfjs
 ) else (
     echo Downloading PDF.js using PowerShell...
-    powershell -Command "Invoke-WebRequest -Uri 'https://github.com/mozilla/pdf.js/releases/download/v4.0.379/pdfjs-4.0.379-dist.zip' -OutFile 'pdfjs.zip'"
+    powershell -Command "Invoke-WebRequest -Uri '%PDFJS_URL%' -OutFile 'pdfjs.zip'"
     if errorlevel 1 goto manual_pdfjs
 )
 
@@ -119,8 +133,8 @@ goto pdfjs_done
 :manual_pdfjs
 echo.
 echo MANUAL SETUP REQUIRED:
-echo 1. Download pdfjs-4.0.379-dist.zip from:
-echo    https://github.com/mozilla/pdf.js/releases/download/v4.0.379/pdfjs-4.0.379-dist.zip
+echo 1. Download pdfjs-%PDFJS_VERSION%-dist.zip from:
+echo    %PDFJS_URL%
 echo 2. Extract the contents to the static\pdfjs directory
 echo 3. Press any key when done...
 pause

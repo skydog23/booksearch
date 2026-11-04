@@ -1,0 +1,5 @@
+# cmd.exe needs CRLF line endings in batch files (LF-only files can break goto/labels).
+*.bat text eol=crlf
+*.cmd text eol=crlf
+# Shell scripts must stay LF even when checked out on Windows.
+*.sh text eol=lf
